@@ -1,10 +1,10 @@
-name: Build Debug APK
+name: Ui Test
 
 on:
   push:
     branches:
-      - master       # tự động build khi push code vào main
-  workflow_dispatch: # cho phép build thủ công từ GitHub UI
+      - main          # tự động build khi push main
+  workflow_dispatch:   # có thể trigger thủ công từ GitHub UI
 
 jobs:
   build:
@@ -12,32 +12,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up JDK 17
+      # 2. Setup JDK
+      - name: Setup Java 17
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
+      # 3. Setup Android SDK (no NDK)
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
         with:
           api-level: 33
           build-tools: "33.0.2"
 
+      # 4. Accept licenses
       - name: Accept licenses
         run: yes | sdkmanager --licenses
 
-      - name: Make gradlew is execuble
+      # 5. Make gradlew executable
+      - name: Make gradlew executable
         run: chmod +x gradlew
-      
-        - name: Build Debug APK
-         run: ./gradlew assembleDebug
 
-      - name: Upload APK artifact
+      # 6. Build APK debug
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      # 7. Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: GachaUltils-debug
+          name: GachaUltis(Alpha)
           path: app/build/outputs/apk/debug/app-debug.apk
