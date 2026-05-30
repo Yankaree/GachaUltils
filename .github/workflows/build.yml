@@ -30,11 +30,14 @@ jobs:
       - name: Accept licenses
         run: yes | sdkmanager --licenses
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug
+      - name: Make gradlew is execuble
+        run: chmod +x gradlew
+      
+        - name: Build Debug APK
+         run: ./gradlew assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GachaModloader-debug
+          name: GachaUltils-debug
           path: app/build/outputs/apk/debug/app-debug.apk
