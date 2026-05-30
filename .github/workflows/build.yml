@@ -1,10 +1,8 @@
 name: Ui Test
 
 on:
-  push:
-    branches:
-      - main          # tự động build khi push main
-  workflow_dispatch:   # có thể trigger thủ công từ GitHub UI
+  push:   # Trigger on any push event
+  workflow_dispatch:   # Allow manual triggering
 
 jobs:
   build:
