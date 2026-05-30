@@ -1,10 +1,13 @@
-name: Build Debug APK
+name: Auto Build Debug APK
 
+# Trigger: push hoặc PR
 on:
   push:
     branches:
       - main
   pull_request:
+    branches:
+      - main
 
 jobs:
   build:
@@ -29,7 +32,6 @@ jobs:
       with:
         api-level: 33
         build-tools: "33.0.2"
-        # ndk not specified
 
     # 4. Accept licenses
     - name: Accept licenses
