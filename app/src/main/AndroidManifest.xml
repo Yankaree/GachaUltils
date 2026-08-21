@@ -28,12 +28,9 @@
             </intent-filter>
         </activity>
 
-        <!-- Remove NewBlackbox SystemCallProvider that crashes on startup -->
-        <!-- It tries to init BEnvironment in :black process without context -->
-        <provider
-            android:name="top.niunaijun.blackbox.core.system.SystemCallProvider"
-            android:authorities="${applicationId}.blackbox.SystemCallProvider"
-            tools:node="remove" />
+        <receiver
+            android:name="me.asrielyankare.gachaultils.blackbox.InstallResultReceiver"
+            android:exported="false" />
 
     </application>
 

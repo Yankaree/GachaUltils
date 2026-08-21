@@ -15,8 +15,7 @@ import me.asrielyankare.gachaultils.core.InstanceId
 import me.asrielyankare.gachaultils.core.InstanceManager
 import me.asrielyankare.gachaultils.core.InstanceStorage
 import me.asrielyankare.gachaultils.core.ApkImporter
-import me.asrielyankare.gachaultils.blackbox.NewBlackboxIntegration
-import me.asrielyankare.gachaultils.blackbox.FallbackBlackBoxIntegration
+import me.asrielyankare.gachaultils.blackbox.PackageInstallerIntegration
 import java.io.File
 
 data class HomeUiState(
@@ -50,35 +49,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val instanceManager = InstanceManager()
     private val apkImporter = ApkImporter(context)
 
-    // Lazy BlackBox integration — only initialized when first needed
-    private var blackBoxInitialized = false
-    private var usingFallback = false
-    private fun ensureBlackBoxInitialized(): Boolean {
-        if (blackBoxInitialized) return true
+    // PackageInstaller integration — initialized lazily
+    private var integrationInitialized = false
+    private var integration: PackageInstallerIntegration? = null
+
+    private fun ensureInitialized(): Boolean {
+        if (integrationInitialized) return true
         return try {
-            NewBlackboxIntegration(context).also {
+            PackageInstallerIntegration(context).also {
                 it.initialize()
                 it.registerImplementations()
+            }.also {
+                integration = it
+                integrationInitialized = true
             }
-            blackBoxInitialized = true
             true
         } catch (e: Throwable) {
-            // Catch both Exception and Error (e.g. UnsatisfiedLinkError, NoClassDefFoundError)
-            android.util.Log.e("HomeViewModel", "NewBlackbox init failed: ${e.javaClass.simpleName}: ${e.message}", e)
-            // Fall back to stub — app can still create/manage instances
-            android.util.Log.w("HomeViewModel", "Using fallback stub integration")
-            try {
-                FallbackBlackBoxIntegration(context).also {
-                    it.initialize()
-                    it.registerImplementations()
-                }
-                usingFallback = true
-                blackBoxInitialized = true
-                true
-            } catch (e2: Throwable) {
-                android.util.Log.e("HomeViewModel", "Fallback also failed: ${e2.message}", e2)
-                false
-            }
+            android.util.Log.e("HomeViewModel", "Integration init failed: ${e.message}", e)
+            false
         }
     }
 
@@ -120,10 +108,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun handleApkSelected(uri: Uri) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            if (!ensureBlackBoxInitialized()) {
+            if (!ensureInitialized()) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "NewBlackbox engine failed to initialize. Check logcat for details."
+                    error = "Failed to initialize package manager."
                 )
                 return@launch
             }
@@ -187,10 +175,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val pending = _uiState.value.pendingReinstall ?: return
         _uiState.value = _uiState.value.copy(pendingReinstall = null, isLoading = true)
         viewModelScope.launch {
-            if (!ensureBlackBoxInitialized()) {
+            if (!ensureInitialized()) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "NewBlackbox engine not available."
+                    error = "Package manager not available."
                 )
                 return@launch
             }
@@ -229,10 +217,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun doImport(apkPath: String, displayName: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            if (!ensureBlackBoxInitialized()) {
+            if (!ensureInitialized()) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "NewBlackbox engine not available."
+                    error = "Package manager not available."
                 )
                 return@launch
             }
@@ -291,10 +279,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val instance = _uiState.value.selectedInstance ?: return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(launcherState = LauncherState.Starting)
-            if (!ensureBlackBoxInitialized()) {
+            if (!ensureInitialized()) {
                 _uiState.value = _uiState.value.copy(
                     launcherState = LauncherState.Error,
-                    error = "NewBlackbox not available"
+                    error = "Package manager not available"
                 )
                 return@launch
             }

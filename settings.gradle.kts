@@ -19,4 +19,3 @@ rootProject.name = "GachaUltils"
 include(":app")
 include(":core")
 include(":blackbox")
-include(":native")

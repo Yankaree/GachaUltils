@@ -13,10 +13,6 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
-        ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
-        }
     }
 
     buildTypes {
@@ -37,13 +33,6 @@ android {
     buildFeatures {
         compose = true
     }
-
-    externalNativeBuild {
-        cmake {
-            path = file("../native/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
 }
 
 kotlin {
@@ -55,10 +44,6 @@ kotlin {
 dependencies {
     implementation(project(":core"))
     implementation(project(":blackbox"))
-    implementation(project(":native"))
-
-    // NewBlackbox Bcore AAR
-    implementation(files("../blackbox/libs/NewBlackbox-Bcore.aar"))
 
     implementation(libs.core.ktx)
     implementation(libs.appcompat)
