@@ -28,11 +28,10 @@ jobs:
 
     - name: Install SDK packages
       run: |
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" "platforms;android-34" "build-tools;34.0.0"
 
     - name: Generate Gradle wrapper
       run: |
-        # Download gradle-wrapper.jar if missing
         if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
           GRADLE_VERSION=$(grep distributionUrl gradle/wrapper/gradle-wrapper.properties | sed 's/.*gradle-\(.*\)-bin.zip.*/\1/')
           echo "Downloading Gradle $GRADLE_VERSION to generate wrapper..."
