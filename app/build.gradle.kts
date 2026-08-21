@@ -8,7 +8,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.gachacloudloader"
+        applicationId = "com.yankaree.gachautils"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

@@ -14,7 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "GachaCloudLoader"
+rootProject.name = "GachaUltils"
 
 include(":app")
 include(":core")
