@@ -50,9 +50,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val apkImporter = ApkImporter(context)
 
     // Initialize BlackBox integration (uses NewBlackboxIntegration wrapper)
-    private val blackBoxIntegration = NewBlackboxIntegration(context).also {
-        it.initialize()
-        it.registerImplementations()
+    private val blackBoxIntegration = try {
+        NewBlackboxIntegration(context).also {
+            it.initialize()
+            it.registerImplementations()
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("HomeViewModel", "NewBlackbox init failed: ${e.message}", e)
+        // Return a minimal integration that won't crash
+        NewBlackboxIntegration(context)
     }
 
     // Initialize persistent storage
@@ -153,11 +159,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val pending = _uiState.value.pendingReinstall ?: return
         _uiState.value = _uiState.value.copy(pendingReinstall = null, isLoading = true)
         viewModelScope.launch {
-            when (val result = instanceManager.reinstallApk(pending.instanceId, pending.apkPath)) {
-                is GachaResult.Success -> loadInstances()
-                is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
+            try {
+                when (val result = instanceManager.reinstallApk(pending.instanceId, pending.apkPath)) {
+                    is GachaResult.Success -> loadInstances()
+                    is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.error.message
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = result.error.message
+                    error = "Reinstall failed: ${e.message}"
                 )
             }
         }
@@ -181,11 +194,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun doImport(apkPath: String, displayName: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = apkImporter.importApk(apkPath, displayName, instanceManager)) {
-                is GachaResult.Success -> loadInstances()
-                is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
+            try {
+                when (val result = apkImporter.importApk(apkPath, displayName, instanceManager)) {
+                    is GachaResult.Success -> loadInstances()
+                    is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.error.message
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = result.error.message
+                    error = "Import failed: ${e.message}"
                 )
             }
         }
@@ -229,17 +249,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val instance = _uiState.value.selectedInstance ?: return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(launcherState = LauncherState.Starting)
-            when (val result = instanceManager.launchInstance(instance.id)) {
-                is GachaResult.Success -> {
-                    _uiState.value = _uiState.value.copy(launcherState = LauncherState.Running)
-                    loadInstances()
+            try {
+                when (val result = instanceManager.launchInstance(instance.id)) {
+                    is GachaResult.Success -> {
+                        _uiState.value = _uiState.value.copy(launcherState = LauncherState.Running)
+                        loadInstances()
+                    }
+                    is GachaResult.Failure -> {
+                        _uiState.value = _uiState.value.copy(
+                            launcherState = LauncherState.Error,
+                            error = result.error.message
+                        )
+                    }
                 }
-                is GachaResult.Failure -> {
-                    _uiState.value = _uiState.value.copy(
-                        launcherState = LauncherState.Error,
-                        error = result.error.message
-                    )
-                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    launcherState = LauncherState.Error,
+                    error = "Launch failed: ${e.message}"
+                )
             }
         }
     }
