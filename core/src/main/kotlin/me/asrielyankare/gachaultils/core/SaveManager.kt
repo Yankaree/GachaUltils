@@ -1,5 +1,6 @@
 package me.asrielyankare.gachaultils.core
 
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.security.MessageDigest
 
@@ -40,7 +41,7 @@ class SaveManager {
         val instance = InstanceStorage.getInstance(instanceId)
             ?: return GachaResult.failure(GachaError.InstanceNotFound(instanceId))
 
-        return InstanceOperationLock.withInstanceLock(instanceId, "backup") {
+        return runBlocking { InstanceOperationLock.withInstanceLock(instanceId, "backup") {
             // Resolve the virtual path
             val virtualPath = snapshot.getVirtualPath()
             val sourceFile = File(virtualPath)
@@ -85,7 +86,7 @@ class SaveManager {
 
             // Return snapshot with file content
             snapshot.copy(fileContent = fileContent)
-        }
+        } }
     }
 
     /**
@@ -113,7 +114,7 @@ class SaveManager {
             ))
         }
 
-        return InstanceOperationLock.withInstanceLock(instanceId, "restore") {
+        return runBlocking { InstanceOperationLock.withInstanceLock(instanceId, "restore") {
             // 1. Find backup file
             val backupFile = File(snapshot.getBackupPath())
             if (!backupFile.exists()) {
@@ -194,7 +195,7 @@ class SaveManager {
                     cause = e
                 ))
             }
-        }
+        } }
     }
 
     /**
