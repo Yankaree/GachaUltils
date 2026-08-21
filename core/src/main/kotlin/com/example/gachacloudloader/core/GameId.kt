@@ -15,25 +15,4 @@ data class GameId(
     val packageName: String,
     /** The specific game type identifier (e.g., AIR_GACHA) that determines save structure and behavior */
     val gameType: GameType
-) {
-    /**
-     * Determines if this GameId is equal to another.
-     * Compares based on packageName and gameType fields.
-     *
-     * @param other The other GameId to compare with
-     * @return true if both objects have identical packageName and gameType
-     */
-    override fun equals(other: Any): Boolean {
-        if (this === other) return true
-        if (other !is GameId) return false
-        return packageName == other.packageName && gameType == other.gameType
-    }
-
-    /**
-     * Generates a hash code for this GameId.
-     * Based on the combined values of packageName and gameType fields.
-     *
-     * @return A hash code for this GameId
-     */
-    override fun hashCode(): Int = (packageName + gameType.hashCode()).hashCode()
-}
+)
