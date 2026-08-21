@@ -42,6 +42,14 @@ sealed class GachaResult<out T> {
         } catch (e: Exception) {
             Failure(GachaError.Unknown(e.message ?: "Unknown error"))
         }
+
+        suspend fun <T> runCatchingSuspend(block: suspend () -> T): GachaResult<T> = try {
+            Success(block())
+        } catch (e: GachaException) {
+            Failure(e.error)
+        } catch (e: Exception) {
+            Failure(GachaError.Unknown(e.message ?: "Unknown error"))
+        }
     }
 }
 

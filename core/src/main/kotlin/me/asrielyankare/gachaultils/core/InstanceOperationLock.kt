@@ -34,7 +34,7 @@ object InstanceOperationLock {
             return GachaResult.failure(GachaError.OperationInProgress(instanceId, operation))
         }
         return mutex.withLock {
-            GachaResult.runCatching { block() }
+            GachaResult.runCatchingSuspend { block() }
         }
     }
 
