@@ -140,7 +140,7 @@ class InstanceManager {
      * @return List of InstanceId objects
      */
     fun listInstances(): List<InstanceId> {
-        return InstanceStorage.instanceMap.values.toList()
+        return InstanceStorage.getAllInstances()
     }
 
     /**
@@ -150,7 +150,7 @@ class InstanceManager {
      * @return InstanceId or null if not found
      */
     fun getInstance(instanceId: Int): InstanceId? {
-        return InstanceStorage.instanceMap.get(instanceId)
+        return InstanceStorage.getInstance(instanceId)
     }
 }
 
@@ -168,5 +168,9 @@ object InstanceStorage {
 
     fun getInstance(instanceId: Int): InstanceId? {
         return instanceMap[instanceId]
+    }
+
+    fun getAllInstances(): List<InstanceId> {
+        return instanceMap.values.toList()
     }
 }
