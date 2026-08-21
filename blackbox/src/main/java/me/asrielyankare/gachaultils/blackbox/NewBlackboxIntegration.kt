@@ -3,33 +3,31 @@ package me.asrielyankare.gachaultils.blackbox
 import android.content.Context
 import android.content.Intent
 import me.asrielyankare.gachaultils.core.*
+import top.niunaijun.blackbox.BlackBoxCore
+import top.niunaijun.blackbox.entity.pm.InstallOption
+import top.niunaijun.blackbox.entity.pm.InstallResult
 import java.io.File
 
 /**
- * NewBlackbox integration layer.
- *
- * This class wraps NewBlackbox APIs and provides the BlackBoxCore interface
- * used by the core module. When NewBlackbox AAR is available:
- *
- * 1. Add dependency in blackbox/build.gradle.kts:
- *    implementation(fileTree(dir: "libs", include: ["*.aar"]))
- *
- * 2. Uncomment the NewBlackbox imports and implementations below
- *
- * 3. Remove StubBlackBoxIntegration.kt
- *
- * For now, this delegates to StubBlackBoxIntegration for development/testing.
+ * Real NewBlackbox integration layer.
+ * Wraps BlackBoxCore API and provides BlackBoxCore interface used by core module.
  */
 class NewBlackboxIntegration(private val context: Context) {
 
     private var initialized = false
-    private val stubIntegration = StubBlackBoxIntegration(context)
 
     fun initialize(): GachaResult<Unit> {
         return try {
-            // TODO: Initialize NewBlackbox here
-            // BlackBoxCore.init(context)
-            stubIntegration.initialize()
+            // Initialize NewBlackbox with app context
+            BlackBoxCore.get().doAttachBaseContext(context, object : top.niunaijun.blackbox.app.configuration.ClientConfiguration {
+                override fun isHideRoot() = false
+                override fun isDisableFlagSecure() = false
+                override fun getHostPackageName() = context.packageName
+                override fun isEnableDaemonService() = true
+                override fun isEnableLauncherActivity() = false
+                override fun requestInstallPackage(file: File?, userId: Int) = true
+            })
+            BlackBoxCore.get().doCreate()
             initialized = true
             GachaResult.success(Unit)
         } catch (e: Exception) {
@@ -43,31 +41,32 @@ class NewBlackboxIntegration(private val context: Context) {
     fun isInitialized(): Boolean = initialized
 
     fun registerImplementations() {
-        // TODO: Replace with real NewBlackbox implementations
-        // When NewBlackbox is available:
-        // BlackBoxRegistry.registerPackageManager(NewBlackboxPackageManager())
-        // BlackBoxRegistry.registerActivityManager(NewBlackboxActivityManager())
-        // BlackBoxRegistry.registerUserManager(NewBlackboxUserManager())
-        // BlackBoxRegistry.registerEnvironment(NewBlackboxEnvironment())
-
-        // For now, use stub implementations
-        stubIntegration.registerImplementations()
+        BlackBoxRegistry.registerPackageManager(NewBlackboxPackageManager())
+        BlackBoxRegistry.registerActivityManager(NewBlackboxActivityManager())
+        BlackBoxRegistry.registerUserManager(NewBlackboxUserManager())
+        BlackBoxRegistry.registerEnvironment(NewBlackboxEnvironment())
     }
 
     /**
      * Real NewBlackbox PackageManager implementation.
-     * Uncomment when NewBlackbox AAR is available.
-     *
-    inner class NewBlackboxPackageManager : BPackageManager {
+     */
+    inner class NewBlackboxPackageManager : me.asrielyankare.gachaultils.core.BPackageManager {
         override fun installPackageAsUser(apkPath: String, userId: Int): GachaResult<InstallInfo> {
             return try {
-                // val result = BlackBoxCore.getBPackageManager().installPackageAsUser(apkPath, userId)
-                // GachaResult.success(InstallInfo(
-                //     packageName = result.packageName,
-                //     success = true,
-                //     message = "Installed via NewBlackbox"
-                // ))
-                stubIntegration.StubPackageManager().installPackageAsUser(apkPath, userId)
+                val result: InstallResult = BlackBoxCore.getBPackageManager()
+                    .installPackageAsUser(apkPath, InstallOption.installByStorage(), userId)
+                if (result.isSuccess) {
+                    GachaResult.success(InstallInfo(
+                        packageName = result.packageName ?: "",
+                        success = true,
+                        message = "Installed via NewBlackbox"
+                    ))
+                } else {
+                    GachaResult.failure(GachaError.PackageInstallError(
+                        packageName = result.packageName ?: "",
+                        reason = result.errorMessage ?: "Install failed"
+                    ))
+                }
             } catch (e: Exception) {
                 GachaResult.failure(GachaError.PackageInstallError(
                     packageName = "",
@@ -78,8 +77,8 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun uninstallPackageAsUser(packageName: String, userId: Int): GachaResult<Unit> {
             return try {
-                // BlackBoxCore.getBPackageManager().uninstallPackageAsUser(packageName, userId)
-                stubIntegration.StubPackageManager().uninstallPackageAsUser(packageName, userId)
+                BlackBoxCore.get().uninstallPackageAsUser(packageName, userId)
+                GachaResult.success(Unit)
             } catch (e: Exception) {
                 GachaResult.failure(GachaError.PackageInstallError(
                     packageName = packageName,
@@ -89,35 +88,64 @@ class NewBlackboxIntegration(private val context: Context) {
         }
 
         override fun getLaunchIntentForPackage(packageName: String, userId: Int): Any? {
-            // TODO: Use NewBlackbox to get launch intent
-            return stubIntegration.StubPackageManager().getLaunchIntentForPackage(packageName, userId)
+            return try {
+                BlackBoxCore.getBPackageManager().getLaunchIntentForPackage(packageName, userId)
+            } catch (e: Exception) {
+                null
+            }
         }
 
         override fun stopPackage(packageName: String, userId: Int): GachaResult<Unit> {
-            return stubIntegration.StubPackageManager().stopPackage(packageName, userId)
+            return try {
+                BlackBoxCore.get().stopPackage(packageName, userId)
+                GachaResult.success(Unit)
+            } catch (e: Exception) {
+                GachaResult.failure(GachaError.InvalidState(
+                    currentState = InstanceState.RUNNING,
+                    attemptedOperation = "stopPackage",
+                    message = "NewBlackbox stopPackage failed: ${e.message}"
+                ))
+            }
         }
 
         override fun isInstalled(packageName: String, userId: Int): Boolean {
-            return stubIntegration.StubPackageManager().isInstalled(packageName, userId)
+            return try {
+                BlackBoxCore.get().isInstalled(packageName, userId)
+            } catch (e: Exception) {
+                false
+            }
         }
 
-        override fun getApplicationInfo(packageName: String, userId: Int): ApplicationInfo? {
-            return stubIntegration.StubPackageManager().getApplicationInfo(packageName, userId)
+        override fun getApplicationInfo(packageName: String, userId: Int): me.asrielyankare.gachaultils.core.ApplicationInfo? {
+            return try {
+                val appInfo = BlackBoxCore.getBPackageManager().getApplicationInfo(packageName, userId)
+                me.asrielyankare.gachaultils.core.ApplicationInfo(
+                    packageName = packageName,
+                    versionName = appInfo?.versionName ?: "unknown",
+                    versionCode = appInfo?.versionCode ?: 0,
+                    sourceDir = appInfo?.sourceDir ?: "",
+                    dataDir = appInfo?.dataDir ?: ""
+                )
+            } catch (e: Exception) {
+                null
+            }
         }
     }
-     */
 
     /**
      * Real NewBlackbox ActivityManager implementation.
-     * Uncomment when NewBlackbox AAR is available.
-     *
-    inner class NewBlackboxActivityManager : BActivityManager {
+     */
+    inner class NewBlackboxActivityManager : me.asrielyankare.gachaultils.core.BActivityManager {
         override fun startActivity(intent: Any, userId: Int): GachaResult<Unit> {
             return try {
-                // val realIntent = intent as? Intent
-                //     ?: throw IllegalArgumentException("Intent must be android.content.Intent")
-                // BlackBoxCore.getBActivityManager().startActivity(realIntent, userId)
-                stubIntegration.StubActivityManager().startActivity(intent, userId)
+                val realIntent = intent as? Intent
+                    ?: return GachaResult.failure(GachaError.InvalidState(
+                        currentState = InstanceState.RUNNING,
+                        attemptedOperation = "startActivity",
+                        message = "Intent must be android.content.Intent"
+                    ))
+                BlackBoxCore.get().startActivity(realIntent, userId)
+                GachaResult.success(Unit)
             } catch (e: Exception) {
                 GachaResult.failure(GachaError.InvalidState(
                     currentState = InstanceState.RUNNING,
@@ -127,5 +155,86 @@ class NewBlackboxIntegration(private val context: Context) {
             }
         }
     }
+
+    /**
+     * Real NewBlackbox UserManager implementation.
      */
+    inner class NewBlackboxUserManager : me.asrielyankare.gachaultils.core.BUserManager {
+        override fun createUser(userId: Int): GachaResult<Unit> {
+            return try {
+                BlackBoxCore.get().createUser(userId)
+                GachaResult.success(Unit)
+            } catch (e: Exception) {
+                GachaResult.failure(GachaError.UserCreationError(userId))
+            }
+        }
+
+        override fun deleteUser(userId: Int): GachaResult<Unit> {
+            return try {
+                BlackBoxCore.get().deleteUser(userId)
+                GachaResult.success(Unit)
+            } catch (e: Exception) {
+                GachaResult.failure(GachaError.UserCreationError(userId))
+            }
+        }
+
+        override fun getUsers(): List<UserInfo> {
+            return try {
+                BlackBoxCore.get().users.map { bui ->
+                    UserInfo(id = bui.id, name = bui.name)
+                }
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+    }
+
+    /**
+     * Real NewBlackbox Environment implementation.
+     */
+    inner class NewBlackboxEnvironment : me.asrielyankare.gachaultils.core.BEnvironment {
+        override fun getDataDir(packageName: String, userId: Int): File {
+            return try {
+                top.niunaijun.blackbox.core.env.BEnvironment.getDataDir(packageName, userId)
+            } catch (e: Exception) {
+                File(context.filesDir, "blackbox/data/user/$userId/$packageName").apply { mkdirs() }
+            }
+        }
+
+        override fun getExternalDataDir(packageName: String, userId: Int): File {
+            return try {
+                top.niunaijun.blackbox.core.env.BEnvironment.getExternalStorageDir(packageName, userId)
+            } catch (e: Exception) {
+                File(context.filesDir, "blackbox/external/user/$userId/$packageName").apply { mkdirs() }
+            }
+        }
+
+        override fun getAppDir(packageName: String): File {
+            return try {
+                top.niunaijun.blackbox.core.env.BEnvironment.getApkDir(packageName)
+            } catch (e: Exception) {
+                File(context.filesDir, "blackbox/data/app/$packageName").apply { mkdirs() }
+            }
+        }
+
+        override fun getBackupRoot(): File {
+            return File(context.filesDir, "backups").apply { mkdirs() }
+        }
+
+        override fun initializeDirectories(userId: Int): GachaResult<Unit> {
+            return try {
+                top.niunaijun.blackbox.core.env.BEnvironment.load()
+                GachaResult.success(Unit)
+            } catch (e: Exception) {
+                GachaResult.failure(GachaError.StorageError(
+                    path = "user/$userId",
+                    message = "Failed to initialize: ${e.message}"
+                ))
+            }
+        }
+
+        override fun cleanupDirectories(userId: Int): GachaResult<Unit> {
+            return GachaResult.success(Unit)
+        }
+    }
 }
