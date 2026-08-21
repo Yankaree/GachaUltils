@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.gachacloudloader.native"
+    namespace = "com.example.gachacloudloader.jni"
     compileSdk = 34
 
     defaultConfig {
