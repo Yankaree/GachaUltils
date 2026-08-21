@@ -51,8 +51,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     // Lazy BlackBox integration — only initialized when first needed
     private var blackBoxInitialized = false
+    private var blackBoxFailed = false
     private fun ensureBlackBoxInitialized(): Boolean {
         if (blackBoxInitialized) return true
+        if (blackBoxFailed) return false
         return try {
             NewBlackboxIntegration(context).also {
                 it.initialize()
@@ -60,8 +62,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
             blackBoxInitialized = true
             true
-        } catch (e: Exception) {
-            android.util.Log.e("HomeViewModel", "NewBlackbox init failed: ${e.message}", e)
+        } catch (e: Throwable) {
+            // Catch both Exception and Error (e.g. UnsatisfiedLinkError, NoClassDefFoundError)
+            android.util.Log.e("HomeViewModel", "NewBlackbox init failed: ${e.javaClass.simpleName}: ${e.message}", e)
+            blackBoxFailed = true
             false
         }
     }
@@ -104,7 +108,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun handleApkSelected(uri: Uri) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            ensureBlackBoxInitialized()
+            if (!ensureBlackBoxInitialized()) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "NewBlackbox engine failed to initialize. Check logcat for details."
+                )
+                return@launch
+            }
             try {
                 // Copy APK to internal storage
                 val apkDir = File(context.filesDir, "apks").apply { mkdirs() }
@@ -165,7 +175,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val pending = _uiState.value.pendingReinstall ?: return
         _uiState.value = _uiState.value.copy(pendingReinstall = null, isLoading = true)
         viewModelScope.launch {
-            ensureBlackBoxInitialized()
+            if (!ensureBlackBoxInitialized()) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "NewBlackbox engine not available."
+                )
+                return@launch
+            }
             try {
                 when (val result = instanceManager.reinstallApk(pending.instanceId, pending.apkPath)) {
                     is GachaResult.Success -> loadInstances()
@@ -201,7 +217,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun doImport(apkPath: String, displayName: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            ensureBlackBoxInitialized()
+            if (!ensureBlackBoxInitialized()) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "NewBlackbox engine not available."
+                )
+                return@launch
+            }
             try {
                 when (val result = apkImporter.importApk(apkPath, displayName, instanceManager)) {
                     is GachaResult.Success -> loadInstances()

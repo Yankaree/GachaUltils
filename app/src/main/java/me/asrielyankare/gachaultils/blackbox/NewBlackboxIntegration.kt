@@ -30,9 +30,10 @@ class NewBlackboxIntegration(private val context: Context) {
             BlackBoxCore.get().doCreate()
             initialized = true
             GachaResult.success(Unit)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            android.util.Log.e("NewBlackboxIntegration", "Init failed: ${e.javaClass.simpleName}: ${e.message}", e)
             GachaResult.failure(GachaError.BlackBoxInitializationError(
-                message = "Failed to initialize NewBlackbox: ${e.message}",
+                message = "Failed to initialize NewBlackbox: ${e.javaClass.simpleName}: ${e.message}",
                 cause = e
             ))
         }
