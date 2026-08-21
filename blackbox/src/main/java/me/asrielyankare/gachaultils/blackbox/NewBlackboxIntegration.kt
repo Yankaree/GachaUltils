@@ -19,7 +19,7 @@ class NewBlackboxIntegration(private val context: Context) {
     fun initialize(): GachaResult<Unit> {
         return try {
             // Initialize NewBlackbox with app context
-            BlackBoxCore.get().doAttachBaseContext(context, object : top.niunaijun.blackbox.app.configuration.ClientConfiguration {
+            BlackBoxCore.get().doAttachBaseContext(context, object : top.niunaijun.blackbox.app.configuration.ClientConfiguration() {
                 override fun isHideRoot() = false
                 override fun isDisableFlagSecure() = false
                 override fun getHostPackageName() = context.packageName
@@ -55,7 +55,7 @@ class NewBlackboxIntegration(private val context: Context) {
             return try {
                 val result: InstallResult = BlackBoxCore.getBPackageManager()
                     .installPackageAsUser(apkPath, InstallOption.installByStorage(), userId)
-                if (result.isSuccess) {
+                if (result.success) {
                     GachaResult.success(InstallInfo(
                         packageName = result.packageName ?: "",
                         success = true,
@@ -64,7 +64,7 @@ class NewBlackboxIntegration(private val context: Context) {
                 } else {
                     GachaResult.failure(GachaError.PackageInstallError(
                         packageName = result.packageName ?: "",
-                        reason = result.errorMessage ?: "Install failed"
+                        reason = result.msg ?: "Install failed"
                     ))
                 }
             } catch (e: Exception) {
@@ -118,11 +118,11 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun getApplicationInfo(packageName: String, userId: Int): me.asrielyankare.gachaultils.core.ApplicationInfo? {
             return try {
-                val appInfo = BlackBoxCore.getBPackageManager().getApplicationInfo(packageName, userId)
+                val appInfo = BlackBoxCore.getBPackageManager().getApplicationInfo(packageName, 0, userId)
                 me.asrielyankare.gachaultils.core.ApplicationInfo(
                     packageName = packageName,
-                    versionName = appInfo?.versionName ?: "unknown",
-                    versionCode = appInfo?.versionCode ?: 0,
+                    versionName = "unknown",
+                    versionCode = 0,
                     sourceDir = appInfo?.sourceDir ?: "",
                     dataDir = appInfo?.dataDir ?: ""
                 )
@@ -211,7 +211,7 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun getAppDir(packageName: String): File {
             return try {
-                top.niunaijun.blackbox.core.env.BEnvironment.getApkDir(packageName)
+                top.niunaijun.blackbox.core.env.BEnvironment.getAppDir(packageName)
             } catch (e: Exception) {
                 File(context.filesDir, "blackbox/data/app/$packageName").apply { mkdirs() }
             }
