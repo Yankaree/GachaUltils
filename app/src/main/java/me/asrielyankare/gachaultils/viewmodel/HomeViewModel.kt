@@ -51,10 +51,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     // Lazy BlackBox integration — only initialized when first needed
     private var blackBoxInitialized = false
-    private var blackBoxFailed = false
+    private var usingFallback = false
     private fun ensureBlackBoxInitialized(): Boolean {
         if (blackBoxInitialized) return true
-        if (blackBoxFailed) return false
         return try {
             NewBlackboxIntegration(context).also {
                 it.initialize()
@@ -65,8 +64,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         } catch (e: Throwable) {
             // Catch both Exception and Error (e.g. UnsatisfiedLinkError, NoClassDefFoundError)
             android.util.Log.e("HomeViewModel", "NewBlackbox init failed: ${e.javaClass.simpleName}: ${e.message}", e)
-            blackBoxFailed = true
-            false
+            // Fall back to stub — app can still create/manage instances
+            android.util.Log.w("HomeViewModel", "Using fallback stub integration")
+            try {
+                FallbackBlackBoxIntegration(context).also {
+                    it.initialize()
+                    it.registerImplementations()
+                }
+                usingFallback = true
+                blackBoxInitialized = true
+                true
+            } catch (e2: Throwable) {
+                android.util.Log.e("HomeViewModel", "Fallback also failed: ${e2.message}", e2)
+                false
+            }
         }
     }
 
