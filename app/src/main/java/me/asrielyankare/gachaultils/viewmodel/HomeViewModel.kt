@@ -16,6 +16,7 @@ import me.asrielyankare.gachaultils.core.InstanceManager
 import me.asrielyankare.gachaultils.core.InstanceStorage
 import me.asrielyankare.gachaultils.core.ApkImporter
 import me.asrielyankare.gachaultils.blackbox.NewBlackboxIntegration
+import me.asrielyankare.gachaultils.blackbox.FallbackBlackBoxIntegration
 import java.io.File
 
 data class HomeUiState(

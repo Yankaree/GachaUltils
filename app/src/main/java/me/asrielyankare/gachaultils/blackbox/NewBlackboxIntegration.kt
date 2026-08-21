@@ -2,8 +2,17 @@ package me.asrielyankare.gachaultils.blackbox
 
 import android.content.Context
 import android.content.Intent
-import me.asrielyankare.gachaultils.core.*
-import top.niunaijun.blackbox.BlackBoxCore
+import me.asrielyankare.gachaultils.core.ApplicationInfo
+import me.asrielyankare.gachaultils.core.BActivityManager
+import me.asrielyankare.gachaultils.core.BEnvironment
+import me.asrielyankare.gachaultils.core.BPackageManager
+import me.asrielyankare.gachaultils.core.BUserManager
+import me.asrielyankare.gachaultils.core.BlackBoxRegistry
+import me.asrielyankare.gachaultils.core.GachaError
+import me.asrielyankare.gachaultils.core.GachaResult
+import me.asrielyankare.gachaultils.core.InstallInfo
+import me.asrielyankare.gachaultils.core.InstanceState
+import me.asrielyankare.gachaultils.core.UserInfo
 import top.niunaijun.blackbox.entity.pm.InstallOption
 import top.niunaijun.blackbox.entity.pm.InstallResult
 import java.io.File
@@ -19,7 +28,7 @@ class NewBlackboxIntegration(private val context: Context) {
     fun initialize(): GachaResult<Unit> {
         return try {
             // Initialize NewBlackbox with app context
-            BlackBoxCore.get().doAttachBaseContext(context, object : top.niunaijun.blackbox.app.configuration.ClientConfiguration() {
+            top.niunaijun.blackbox.BlackBoxCore.get().doAttachBaseContext(context, object : top.niunaijun.blackbox.app.configuration.ClientConfiguration() {
                 override fun isHideRoot() = false
                 override fun isDisableFlagSecure() = false
                 override fun getHostPackageName() = context.packageName
@@ -27,7 +36,7 @@ class NewBlackboxIntegration(private val context: Context) {
                 override fun isEnableLauncherActivity() = false
                 override fun requestInstallPackage(file: File?, userId: Int) = true
             })
-            BlackBoxCore.get().doCreate()
+            top.niunaijun.blackbox.BlackBoxCore.get().doCreate()
             initialized = true
             GachaResult.success(Unit)
         } catch (e: Throwable) {
@@ -54,7 +63,7 @@ class NewBlackboxIntegration(private val context: Context) {
     inner class NewBlackboxPackageManager : me.asrielyankare.gachaultils.core.BPackageManager {
         override fun installPackageAsUser(apkPath: String, userId: Int): GachaResult<InstallInfo> {
             return try {
-                val result: InstallResult = BlackBoxCore.getBPackageManager()
+                val result: InstallResult = top.niunaijun.blackbox.BlackBoxCore.getBPackageManager()
                     .installPackageAsUser(apkPath, InstallOption.installByStorage(), userId)
                 if (result.success) {
                     GachaResult.success(InstallInfo(
@@ -78,7 +87,7 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun uninstallPackageAsUser(packageName: String, userId: Int): GachaResult<Unit> {
             return try {
-                BlackBoxCore.get().uninstallPackageAsUser(packageName, userId)
+                top.niunaijun.blackbox.BlackBoxCore.get().uninstallPackageAsUser(packageName, userId)
                 GachaResult.success(Unit)
             } catch (e: Exception) {
                 GachaResult.failure(GachaError.PackageInstallError(
@@ -90,7 +99,7 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun getLaunchIntentForPackage(packageName: String, userId: Int): Any? {
             return try {
-                BlackBoxCore.getBPackageManager().getLaunchIntentForPackage(packageName, userId)
+                top.niunaijun.blackbox.BlackBoxCore.getBPackageManager().getLaunchIntentForPackage(packageName, userId)
             } catch (e: Exception) {
                 null
             }
@@ -98,7 +107,7 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun stopPackage(packageName: String, userId: Int): GachaResult<Unit> {
             return try {
-                BlackBoxCore.get().stopPackage(packageName, userId)
+                top.niunaijun.blackbox.BlackBoxCore.get().stopPackage(packageName, userId)
                 GachaResult.success(Unit)
             } catch (e: Exception) {
                 GachaResult.failure(GachaError.InvalidState(
@@ -111,7 +120,7 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun isInstalled(packageName: String, userId: Int): Boolean {
             return try {
-                BlackBoxCore.get().isInstalled(packageName, userId)
+                top.niunaijun.blackbox.BlackBoxCore.get().isInstalled(packageName, userId)
             } catch (e: Exception) {
                 false
             }
@@ -119,7 +128,7 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun getApplicationInfo(packageName: String, userId: Int): me.asrielyankare.gachaultils.core.ApplicationInfo? {
             return try {
-                val appInfo = BlackBoxCore.getBPackageManager().getApplicationInfo(packageName, 0, userId)
+                val appInfo = top.niunaijun.blackbox.BlackBoxCore.getBPackageManager().getApplicationInfo(packageName, 0, userId)
                 me.asrielyankare.gachaultils.core.ApplicationInfo(
                     packageName = packageName,
                     versionName = "unknown",
@@ -145,7 +154,7 @@ class NewBlackboxIntegration(private val context: Context) {
                         attemptedOperation = "startActivity",
                         message = "Intent must be android.content.Intent"
                     ))
-                BlackBoxCore.get().startActivity(realIntent, userId)
+                top.niunaijun.blackbox.BlackBoxCore.get().startActivity(realIntent, userId)
                 GachaResult.success(Unit)
             } catch (e: Exception) {
                 GachaResult.failure(GachaError.InvalidState(
@@ -163,7 +172,7 @@ class NewBlackboxIntegration(private val context: Context) {
     inner class NewBlackboxUserManager : me.asrielyankare.gachaultils.core.BUserManager {
         override fun createUser(userId: Int): GachaResult<Unit> {
             return try {
-                BlackBoxCore.get().createUser(userId)
+                top.niunaijun.blackbox.BlackBoxCore.get().createUser(userId)
                 GachaResult.success(Unit)
             } catch (e: Exception) {
                 GachaResult.failure(GachaError.UserCreationError(userId))
@@ -172,7 +181,7 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun deleteUser(userId: Int): GachaResult<Unit> {
             return try {
-                BlackBoxCore.get().deleteUser(userId)
+                top.niunaijun.blackbox.BlackBoxCore.get().deleteUser(userId)
                 GachaResult.success(Unit)
             } catch (e: Exception) {
                 GachaResult.failure(GachaError.UserCreationError(userId))
@@ -181,7 +190,7 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun getUsers(): List<UserInfo> {
             return try {
-                BlackBoxCore.get().users.map { bui ->
+                top.niunaijun.blackbox.BlackBoxCore.get().users.map { bui ->
                     UserInfo(id = bui.id, name = bui.name)
                 }
             } catch (e: Exception) {
