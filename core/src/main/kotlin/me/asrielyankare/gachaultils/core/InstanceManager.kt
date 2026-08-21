@@ -1,176 +1,270 @@
 package me.asrielyankare.gachaultils.core
 
 /**
- * Manages virtual instance lifecycle in the Gacha Cloud Loader
- * Handles mapping between NewBlackbox user IDs and virtual instances
- * Coordinates with NewBlackbox's BPackageManager and BEnvironment
+ * Manages the complete lifecycle of virtual instances.
+ *
+ * Instance lifecycle:
+ * CREATED → INSTALLING → READY ⇄ RUNNING ⇄ STOPPING
+ *
+ * Each operation is protected by per-instance locks to prevent concurrent conflicts.
  */
 class InstanceManager {
+
     /**
-     * Creates a new virtual instance with proper directory mapping
+     * Creates a new virtual instance with proper directory setup.
      *
-     * @param instanceId     Unique numeric instance ID
-     * @param packageName    Game package name to virtualize
-     * @param gameId         GameId of the game to run
-     * @param displayName    Human-readable instance name
-     * @return InstanceId    Created instance identifier
+     * Flow:
+     * 1. Create BlackBox user
+     * 2. Initialize virtual directories
+     * 3. Store instance metadata
      */
     fun createInstance(
-        instanceId: Int,
         packageName: String,
         gameId: GameId,
-        displayName: String
-    ): InstanceId {
-        // 1. Verify NewBlackbox supports this user ID
-        if (!BlackBoxCore.getBPackageManager().isUserValid(instanceId)) {
-            throw IllegalStateException("User ID $instanceId is not valid in NewBlackbox")
+        displayName: String,
+        apkPath: String = ""
+    ): GachaResult<InstanceId> {
+        val nextId = InstanceStorage.getNextId()
+
+        return InstanceOperationLock.withInstanceLock(nextId, "create") {
+            // 1. Create user in BlackBox
+            val userResult = BlackBoxCore.getBUserManager().createUser(nextId)
+            if (userResult is GachaResult.Failure) {
+                throw GachaException(GachaError.UserCreationError(nextId))
+            }
+
+            // 2. Initialize directories
+            val envResult = BlackBoxCore.getBEnvironment().initializeDirectories(nextId)
+            if (envResult is GachaResult.Failure) {
+                throw GachaException(GachaError.StorageError(
+                    path = "user/$nextId",
+                    message = "Failed to initialize directories"
+                ))
+            }
+
+            // 3. Create and store instance
+            val instance = InstanceId.create(
+                id = nextId,
+                userId = nextId,
+                packageName = packageName,
+                gameId = gameId,
+                displayName = displayName,
+                apkPath = apkPath
+            )
+
+            InstanceStorage.addInstance(instance)
+            instance
         }
-
-        // 2. Initialize virtual directories via BEnvironment
-        BlackBoxCore.getBEnvironment().initializeInstanceDirectories(instanceId)
-
-        // 3. Map user ID to package via BPackageManager
-        BlackBoxCore.getBPackageManager().setCurrentUser(instanceId)
-
-        // 4. Create InstanceId record
-        val instance = InstanceId.create(
-            id = instanceId,
-            userId = instanceId,
-            packageName = packageName,
-            gameId = gameId,
-            displayName = displayName
-        )
-
-        // 5. Notify system of new instance
-        BlackBoxCore.getBUserManager().addUser(instanceId)
-        InstanceStorage.addInstance(instance)
-
-        return instance
     }
 
     /**
-     * Launch a game instance in NewBlackbox
+     * Installs an APK into an instance.
      *
-     * @param instanceId Instance to launch
-     * @param apkPath    Path to game APK
-     * @return true if successful
+     * Flow:
+     * 1. Validate instance state
+     * 2. Install APK via BlackBox
+     * 3. Update instance state to READY
      */
-    fun launchInstance(instanceId: Int, apkPath: String): Boolean {
-        // Validate instance exists
+    fun installApk(instanceId: Int, apkPath: String): GachaResult<InstanceId> {
         val instance = InstanceStorage.getInstance(instanceId)
-        if (instance == null) {
-            throw IllegalStateException("Instance $instanceId not found")
+            ?: return GachaResult.failure(GachaError.InstanceNotFound(instanceId))
+
+        if (!instance.state.isTransitionAllowed(InstanceState.INSTALLING)) {
+            return GachaResult.failure(GachaError.InvalidState(
+                currentState = instance.state,
+                attemptedOperation = "installApk"
+            ))
         }
 
+        return InstanceOperationLock.withInstanceLock(instanceId, "install") {
+            // Update state to INSTALLING
+            InstanceStorage.updateInstance(instance.copy(
+                state = InstanceState.INSTALLING,
+                updatedAt = System.currentTimeMillis()
+            ))
 
-        // 1. Install APK via BlackBoxPackageManager
-        val installResult = BlackBoxCore.getBPackageManager().installPackageAsUser(
-            apkPath,
-            InstallOptions(),
-            instance.userId
-        )
-
-        if (!installResult.success) {
-            return false
+            // Install via BlackBox
+            val installResult = BlackBoxCore.getBPackageManager().installPackageAsUser(apkPath, instance.userId)
+            when (installResult) {
+                is GachaResult.Success -> {
+                    val updated = instance.copy(
+                        state = InstanceState.READY,
+                        apkPath = apkPath,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    InstanceStorage.updateInstance(updated)
+                    updated
+                }
+                is GachaResult.Failure -> {
+                    InstanceStorage.updateInstance(instance.copy(
+                        state = InstanceState.ERROR,
+                        updatedAt = System.currentTimeMillis()
+                    ))
+                    throw GachaException(installResult.error)
+                }
+            }
         }
-
-
-        // 2. Map instance to virtual user ID
-        BlackBoxCore.getBEnvironment().setCurrentUser(instance.userId)
-
-
-        // 3. Launch through NewBlackbox's activity system
-        val launchIntent = BlackBoxCore.getBPackageManager().getLaunchIntentForPackage(
-            instance.packageName,
-            instance.userId
-        )
-
-        if (launchIntent == null) {
-            return false
-        }
-
-
-        // 4. Start activity (simplified - actual implementation would handle UI)
-        // This would typically involve starting an IntentService or similar
-        BlackBoxCore.getBActivityManager().startActivity(
-            launchIntent,
-            instance.userId
-        )
-
-        return true
     }
 
     /**
-     * Stop an instance and clean up resources
+     * Launches a game in the specified instance.
      *
-     * @param instanceId Instance to stop
-     * @return true if successful
+     * Flow:
+     * 1. Validate instance is READY
+     * 2. Get launch intent
+     * 3. Start activity
+     * 4. Update state to RUNNING
      */
-    fun stopInstance(instanceId: Int): Boolean {
+    fun launchInstance(instanceId: Int): GachaResult<InstanceId> {
         val instance = InstanceStorage.getInstance(instanceId)
-        if (instance == null) {
-            return false
+            ?: return GachaResult.failure(GachaError.InstanceNotFound(instanceId))
+
+        if (instance.state != InstanceState.READY && instance.state != InstanceState.STOPPING) {
+            return GachaResult.failure(GachaError.InvalidState(
+                currentState = instance.state,
+                attemptedOperation = "launch"
+            ))
         }
 
+        return InstanceOperationLock.withInstanceLock(instanceId, "launch") {
+            // Get launch intent
+            val intent = BlackBoxCore.getBPackageManager().getLaunchIntentForPackage(
+                instance.packageName,
+                instance.userId
+            ) ?: throw GachaException(GachaError.LaunchError(
+                packageName = instance.packageName,
+                userId = instance.userId,
+                message = "No launch intent found for ${instance.packageName}"
+            ))
 
-        // 1. Stop the package in NewBlackbox
-        BlackBoxCore.getBPackageManager().stopPackage(
-            instance.packageName,
-            instance.userId
-        )
+            // Start activity
+            val startResult = BlackBoxCore.getBActivityManager().startActivity(intent, instance.userId)
+            when (startResult) {
+                is GachaResult.Success -> {
+                    val updated = instance.copy(
+                        state = InstanceState.RUNNING,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    InstanceStorage.updateInstance(updated)
+                    updated
+                }
+                is GachaResult.Failure -> throw GachaException(startResult.error)
+            }
+        }
+    }
 
+    /**
+     * Stops a running instance.
+     *
+     * Flow:
+     * 1. Validate instance is RUNNING
+     * 2. Stop package
+     * 3. Update state to READY
+     */
+    fun stopInstance(instanceId: Int): GachaResult<InstanceId> {
+        val instance = InstanceStorage.getInstance(instanceId)
+            ?: return GachaResult.failure(GachaError.InstanceNotFound(instanceId))
 
-        // 2. Clean up virtual directories
-        BlackBoxCore.getBEnvironment().cleanupInstanceDirectories(instance.userId)
+        if (instance.state != InstanceState.RUNNING) {
+            return GachaResult.failure(GachaError.InvalidState(
+                currentState = instance.state,
+                attemptedOperation = "stop"
+            ))
+        }
 
+        return InstanceOperationLock.withInstanceLock(instanceId, "stop") {
+            // Update state to STOPPING
+            InstanceStorage.updateInstance(instance.copy(
+                state = InstanceState.STOPPING,
+                updatedAt = System.currentTimeMillis()
+            ))
 
-        // 3. Remove from storage
+            // Stop package
+            val stopResult = BlackBoxCore.getBPackageManager().stopPackage(
+                instance.packageName,
+                instance.userId
+            )
+
+            val updated = instance.copy(
+                state = InstanceState.READY,
+                updatedAt = System.currentTimeMillis()
+            )
+            InstanceStorage.updateInstance(updated)
+            updated
+        }
+    }
+
+    /**
+     * Deletes an instance and cleans up resources.
+     */
+    fun deleteInstance(instanceId: Int): GachaResult<Unit> {
+        val instance = InstanceStorage.getInstance(instanceId)
+            ?: return GachaResult.failure(GachaError.InstanceNotFound(instanceId))
+
+        if (InstanceOperationLock.isLocked(instanceId)) {
+            return GachaResult.failure(GachaError.OperationInProgress(
+                instanceId = instanceId,
+                operation = "delete"
+            ))
+        }
+
+        // Stop if running
+        if (instance.state == InstanceState.RUNNING) {
+            val stopResult = stopInstance(instanceId)
+            if (stopResult is GachaResult.Failure) {
+                return GachaResult.failure(stopResult.error)
+            }
+        }
+
+        // Uninstall from BlackBox
+        try {
+            BlackBoxCore.getBPackageManager().uninstallPackageAsUser(
+                instance.packageName,
+                instance.userId
+            )
+        } catch (e: Exception) {
+            // Continue cleanup even if uninstall fails
+        }
+
+        // Delete user from BlackBox
+        try {
+            BlackBoxCore.getBUserManager().deleteUser(instance.userId)
+        } catch (e: Exception) {
+            // Continue cleanup
+        }
+
+        // Clean up directories
+        try {
+            BlackBoxCore.getBEnvironment().cleanupDirectories(instance.userId)
+        } catch (e: Exception) {
+            // Continue cleanup
+        }
+
+        // Remove from storage
         InstanceStorage.removeInstance(instanceId)
+        InstanceOperationLock.removeLock(instanceId)
 
-
-        // 4. Notify user manager
-        BlackBoxCore.getBUserManager().removeUser(instance.userId)
-
-        return true
+        return GachaResult.success(Unit)
     }
 
     /**
-     * Get all active instances
-     *
-     * @return List of InstanceId objects
+     * Get all instances.
      */
     fun listInstances(): List<InstanceId> {
         return InstanceStorage.getAllInstances()
     }
 
     /**
-     * Get instance by ID
-     *
-     * @param instanceId Instance identifier
-     * @return InstanceId or null if not found
+     * Get instance by ID.
      */
     fun getInstance(instanceId: Int): InstanceId? {
         return InstanceStorage.getInstance(instanceId)
     }
-}
 
-// Storage implementation would need to be fleshed out
-object InstanceStorage {
-    private val instanceMap = mutableMapOf<Int, InstanceId>()
-
-    fun addInstance(instance: InstanceId) {
-        instanceMap[instance.id] = instance
-    }
-
-    fun removeInstance(instanceId: Int) {
-        instanceMap.remove(instanceId)
-    }
-
-    fun getInstance(instanceId: Int): InstanceId? {
-        return instanceMap[instanceId]
-    }
-
-    fun getAllInstances(): List<InstanceId> {
-        return instanceMap.values.toList()
+    /**
+     * Select an instance (update UI state reference).
+     */
+    fun selectInstance(instanceId: Int): InstanceId? {
+        return InstanceStorage.getInstance(instanceId)
     }
 }

@@ -182,7 +182,7 @@ fun HomeScreen(
                                 launcherState = uiState.launcherState.name,
                                 onClick = { },
                                 onLaunch = {
-                                    viewModel.launchInstance(instance.gameId.packageName)
+                                    viewModel.launchInstance()
                                 }
                             )
                         }
