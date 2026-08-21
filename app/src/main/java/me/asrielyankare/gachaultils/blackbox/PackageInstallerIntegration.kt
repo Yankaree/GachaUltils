@@ -105,11 +105,9 @@ class PackageInstallerIntegration(private val context: Context) {
 
         override fun stopPackage(packageName: String, userId: Int): GachaResult<Unit> {
             return try {
-                @Suppress("DEPRECATION")
-                val intent = Intent(Intent.ACTION_STOP_APP_PACKAGE).apply {
-                    putExtra("package", packageName)
-                }
-                context.sendBroadcast(intent)
+                val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE)
+                    as? android.app.ActivityManager
+                activityManager?.killBackgroundProcesses(packageName)
                 GachaResult.success(Unit)
             } catch (e: Exception) {
                 GachaResult.failure(GachaError.InvalidState(
