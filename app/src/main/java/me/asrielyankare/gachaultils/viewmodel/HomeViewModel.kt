@@ -49,16 +49,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val instanceManager = InstanceManager()
     private val apkImporter = ApkImporter(context)
 
-    // Initialize BlackBox integration (uses NewBlackboxIntegration wrapper)
-    private val blackBoxIntegration = try {
-        NewBlackboxIntegration(context).also {
-            it.initialize()
-            it.registerImplementations()
+    // Lazy BlackBox integration — only initialized when first needed
+    private var blackBoxInitialized = false
+    private fun ensureBlackBoxInitialized(): Boolean {
+        if (blackBoxInitialized) return true
+        return try {
+            NewBlackboxIntegration(context).also {
+                it.initialize()
+                it.registerImplementations()
+            }
+            blackBoxInitialized = true
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "NewBlackbox init failed: ${e.message}", e)
+            false
         }
-    } catch (e: Exception) {
-        android.util.Log.e("HomeViewModel", "NewBlackbox init failed: ${e.message}", e)
-        // Return a minimal integration that won't crash
-        NewBlackboxIntegration(context)
     }
 
     // Initialize persistent storage
@@ -99,6 +104,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun handleApkSelected(uri: Uri) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            ensureBlackBoxInitialized()
             try {
                 // Copy APK to internal storage
                 val apkDir = File(context.filesDir, "apks").apply { mkdirs() }
@@ -159,6 +165,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val pending = _uiState.value.pendingReinstall ?: return
         _uiState.value = _uiState.value.copy(pendingReinstall = null, isLoading = true)
         viewModelScope.launch {
+            ensureBlackBoxInitialized()
             try {
                 when (val result = instanceManager.reinstallApk(pending.instanceId, pending.apkPath)) {
                     is GachaResult.Success -> loadInstances()
@@ -194,6 +201,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun doImport(apkPath: String, displayName: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            ensureBlackBoxInitialized()
             try {
                 when (val result = apkImporter.importApk(apkPath, displayName, instanceManager)) {
                     is GachaResult.Success -> loadInstances()
@@ -249,6 +257,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val instance = _uiState.value.selectedInstance ?: return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(launcherState = LauncherState.Starting)
+            if (!ensureBlackBoxInitialized()) {
+                _uiState.value = _uiState.value.copy(
+                    launcherState = LauncherState.Error,
+                    error = "NewBlackbox not available"
+                )
+                return@launch
+            }
             try {
                 when (val result = instanceManager.launchInstance(instance.id)) {
                     is GachaResult.Success -> {

@@ -5,15 +5,13 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import me.asrielyankare.gachaultils.core.InstanceStorage
-import me.asrielyankare.gachaultils.blackbox.NewBlackboxIntegration
 
 /**
  * Application class that initializes core services at startup.
+ * NewBlackbox is NOT initialized here to avoid crash on app start.
+ * It is initialized lazily when first needed (e.g. import APK).
  */
 class GachaUltilsApplication : Application() {
-
-    lateinit var blackBoxIntegration: NewBlackboxIntegration
-        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -21,26 +19,14 @@ class GachaUltilsApplication : Application() {
         // Initialize persistent instance storage
         InstanceStorage.init(filesDir)
 
-        // Create notification channels BEFORE NewBlackbox init
-        // NewBlackbox DaemonService needs a notification channel for foreground service
+        // Create notification channels early
         createNotificationChannels()
-
-        // Initialize NewBlackbox integration
-        try {
-            blackBoxIntegration = NewBlackboxIntegration(this)
-            blackBoxIntegration.initialize()
-            blackBoxIntegration.registerImplementations()
-        } catch (e: Exception) {
-            // NewBlackbox init failed — app can still work with limited functionality
-            android.util.Log.e("GachaUltils", "NewBlackbox init failed: ${e.message}", e)
-        }
     }
 
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(NotificationManager::class.java) ?: return
 
-            // BlackBox DaemonService channel
             val blackboxChannel = NotificationChannel(
                 "blackbox_service",
                 "BlackBox Service",
@@ -50,7 +36,6 @@ class GachaUltilsApplication : Application() {
                 setShowBadge(false)
             }
 
-            // General notifications channel
             val generalChannel = NotificationChannel(
                 "gacha_general",
                 "General",
