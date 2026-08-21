@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +27,7 @@ import me.asrielyankare.gachaultils.ui.theme.PrimaryOrange
 import me.asrielyankare.gachaultils.ui.theme.StateRunning
 import me.asrielyankare.gachaultils.ui.theme.StateStopped
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstanceCard(
     instance: InstanceId,

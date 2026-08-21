@@ -26,7 +26,8 @@ enum class ThemeMode {
 }
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val prefs = application.getSharedPreferences("gacha_settings", Context.MODE_PRIVATE)
+    private val app = application
+    private val prefs = app.getSharedPreferences("gacha_settings", Context.MODE_PRIVATE)
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -55,7 +56,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             instanceLocation = prefs.getString("instance_location", "") ?: "",
             backupLocation = prefs.getString("backup_location", "") ?: "",
             versionName = try {
-                application.packageManager.getPackageInfo(application.packageName, 0).versionName ?: "1.0"
+                app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "1.0"
             } catch (e: Exception) { "1.0" }
         )
     }
