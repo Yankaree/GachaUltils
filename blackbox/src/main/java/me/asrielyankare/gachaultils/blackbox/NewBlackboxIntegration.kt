@@ -203,7 +203,7 @@ class NewBlackboxIntegration(private val context: Context) {
 
         override fun getExternalDataDir(packageName: String, userId: Int): File {
             return try {
-                top.niunaijun.blackbox.core.env.BEnvironment.getExternalStorageDir(packageName, userId)
+                top.niunaijun.blackbox.core.env.BEnvironment.getExternalDataDir(packageName, userId)
             } catch (e: Exception) {
                 File(context.filesDir, "blackbox/external/user/$userId/$packageName").apply { mkdirs() }
             }
