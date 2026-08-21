@@ -105,6 +105,7 @@ class PackageInstallerIntegration(private val context: Context) {
 
         override fun stopPackage(packageName: String, userId: Int): GachaResult<Unit> {
             return try {
+                @Suppress("MissingPermission")
                 val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE)
                     as? android.app.ActivityManager
                 activityManager?.killBackgroundProcesses(packageName)
