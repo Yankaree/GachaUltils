@@ -30,10 +30,16 @@ jobs:
           "build-tools;35.0.0" \
           "ndk;29.0.13846066"
 
-    - name: Build Bcore AAR
-      working-directory: NewBlackbox
+    - name: Verify files
       run: |
-        chmod +x gradlew || true
+        ls -la NewBlackbox/
+        ls -la NewBlackbox/gradlew
+        file NewBlackbox/gradlew
+
+    - name: Build Bcore AAR
+      run: |
+        cd NewBlackbox
+        chmod +x gradlew
         ./gradlew :Bcore:assembleRelease --no-daemon
 
     - name: Upload AAR artifact
