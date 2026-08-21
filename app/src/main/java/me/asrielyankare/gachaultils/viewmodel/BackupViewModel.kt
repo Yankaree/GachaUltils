@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.asrielyankare.gachaultils.core.GachaResult
-import me.asrielyankare.gachaultils.core.InstanceState
 import me.asrielyankare.gachaultils.core.InstanceId
 import me.asrielyankare.gachaultils.core.InstanceStorage
 import me.asrielyankare.gachaultils.core.SaveManager
