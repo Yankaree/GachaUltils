@@ -1,5 +1,8 @@
 package me.asrielyankare.gachaultils.ui.screens.home
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,6 +37,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +57,13 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // SAF file picker for APK selection
+    val apkPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.handleApkSelected(it) }
+    }
 
     Scaffold(
         topBar = {
@@ -82,7 +95,7 @@ fun HomeScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { viewModel.importApk("", "New Instance") },
+                onClick = { apkPickerLauncher.launch(arrayOf("application/vnd.android.package-archive")) },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
                 Icon(
@@ -274,7 +287,7 @@ fun HomeScreen(
                                 // Add Instance placeholder card
                                 Card(
                                     modifier = Modifier.width(200.dp),
-                                    onClick = { viewModel.importApk("", "New Instance") },
+                                    onClick = { apkPickerLauncher.launch(arrayOf("application/vnd.android.package-archive")) },
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant
                                     )

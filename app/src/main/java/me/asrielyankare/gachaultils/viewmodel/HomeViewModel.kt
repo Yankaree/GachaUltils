@@ -1,6 +1,7 @@
 package me.asrielyankare.gachaultils.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +15,8 @@ import me.asrielyankare.gachaultils.core.InstanceId
 import me.asrielyankare.gachaultils.core.InstanceManager
 import me.asrielyankare.gachaultils.core.InstanceStorage
 import me.asrielyankare.gachaultils.core.ApkImporter
-import me.asrielyankare.gachaultils.blackbox.StubBlackBoxIntegration
+import me.asrielyankare.gachaultils.blackbox.NewBlackboxIntegration
+import java.io.File
 
 data class HomeUiState(
     val instances: List<InstanceId> = emptyList(),
@@ -37,8 +39,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val instanceManager = InstanceManager()
     private val apkImporter = ApkImporter(context)
 
-    // Initialize BlackBox integration
-    private val blackBoxIntegration = StubBlackBoxIntegration(context).also {
+    // Initialize BlackBox integration (uses NewBlackboxIntegration wrapper)
+    private val blackBoxIntegration = NewBlackboxIntegration(context).also {
         it.initialize()
         it.registerImplementations()
     }
@@ -71,6 +73,62 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectInstance(instance: InstanceId) {
         _uiState.value = _uiState.value.copy(selectedInstance = instance)
+    }
+
+    /**
+     * Handles APK file selected via SAF (Storage Access Framework).
+     * Copies the APK to internal storage, then imports it.
+     */
+    fun handleApkSelected(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                // Copy APK to internal storage
+                val apkDir = File(context.filesDir, "apks").apply { mkdirs() }
+                val fileName = "imported_${System.currentTimeMillis()}.apk"
+                val apkFile = File(apkDir, fileName)
+
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    apkFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                } ?: throw Exception("Failed to open APK file")
+
+                // Get display name from content resolver
+                val displayName = getDisplayNameFromUri(uri) ?: "New Instance"
+
+                // Import the APK
+                when (val result = apkImporter.importApk(apkFile.absolutePath, displayName, instanceManager)) {
+                    is GachaResult.Success -> loadInstances()
+                    is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.error.message
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Failed to import APK: ${e.message}"
+                )
+            }
+        }
+    }
+
+    /**
+     * Gets display name from content URI.
+     */
+    private fun getDisplayNameFromUri(uri: Uri): String? {
+        return try {
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex >= 0) it.getString(nameIndex) else null
+                } else null
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun createInstance(
