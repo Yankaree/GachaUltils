@@ -1,5 +1,7 @@
 package me.asrielyankare.gachaultils.core
 
+import kotlinx.coroutines.runBlocking
+
 /**
  * Manages the complete lifecycle of virtual instances.
  *
@@ -26,7 +28,7 @@ class InstanceManager {
     ): GachaResult<InstanceId> {
         val nextId = InstanceStorage.getNextId()
 
-        return InstanceOperationLock.withInstanceLock(nextId, "create") {
+        return runBlocking { InstanceOperationLock.withInstanceLock(nextId, "create") {
             // 1. Create user in BlackBox
             val userResult = BlackBoxCore.getBUserManager().createUser(nextId)
             if (userResult is GachaResult.Failure) {
@@ -54,7 +56,7 @@ class InstanceManager {
 
             InstanceStorage.addInstance(instance)
             instance
-        }
+        } }
     }
 
     /**
@@ -76,7 +78,7 @@ class InstanceManager {
             ))
         }
 
-        return InstanceOperationLock.withInstanceLock(instanceId, "install") {
+        return runBlocking { InstanceOperationLock.withInstanceLock(instanceId, "install") {
             // Update state to INSTALLING
             InstanceStorage.updateInstance(instance.copy(
                 state = InstanceState.INSTALLING,
@@ -103,7 +105,7 @@ class InstanceManager {
                     throw GachaException(installResult.error)
                 }
             }
-        }
+        } }
     }
 
     /**
@@ -126,7 +128,7 @@ class InstanceManager {
             ))
         }
 
-        return InstanceOperationLock.withInstanceLock(instanceId, "launch") {
+        return runBlocking { InstanceOperationLock.withInstanceLock(instanceId, "launch") {
             // Get launch intent
             val intent = BlackBoxCore.getBPackageManager().getLaunchIntentForPackage(
                 instance.packageName,
@@ -150,7 +152,7 @@ class InstanceManager {
                 }
                 is GachaResult.Failure -> throw GachaException(startResult.error)
             }
-        }
+        } }
     }
 
     /**
@@ -172,7 +174,7 @@ class InstanceManager {
             ))
         }
 
-        return InstanceOperationLock.withInstanceLock(instanceId, "stop") {
+        return runBlocking { InstanceOperationLock.withInstanceLock(instanceId, "stop") {
             // Update state to STOPPING
             InstanceStorage.updateInstance(instance.copy(
                 state = InstanceState.STOPPING,
@@ -191,7 +193,7 @@ class InstanceManager {
             )
             InstanceStorage.updateInstance(updated)
             updated
-        }
+        } }
     }
 
     /**

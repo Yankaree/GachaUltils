@@ -49,8 +49,8 @@ sealed class GachaResult<out T> {
  * Typed error hierarchy for the application.
  */
 sealed class GachaError : Exception() {
-    abstract val message: String
-    abstract val cause: Throwable?
+    abstract override val message: String
+    abstract override val cause: Throwable?
 
     data class BlackBoxInitializationError(
         override val message: String = "Failed to initialize NewBlackbox",
