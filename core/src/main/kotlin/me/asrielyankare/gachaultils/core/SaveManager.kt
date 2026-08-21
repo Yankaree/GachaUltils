@@ -6,7 +6,6 @@ import java.security.MessageDigest
 
 /**
  * SHA-256 hasher using standard JVM MessageDigest.
- * No custom implementation - uses java.security.MessageDigest.
  */
 object SaveHasher {
     fun hashFile(file: File): String {
@@ -29,7 +28,6 @@ object SaveHasher {
 
 /**
  * Abstract base for save detection providers.
- * Each game type can have specialized save detection logic.
  */
 abstract class SaveDetector {
     abstract fun detectSaves(instanceId: Int, packageName: String): List<SaveSnapshot>
@@ -49,10 +47,13 @@ object AirSaveProvider : SaveDetector() {
     override fun detectSaves(instanceId: Int, packageName: String): List<SaveSnapshot> {
         val instance = InstanceStorage.getInstance(instanceId) ?: return emptyList()
 
-        val dataDir = BlackBoxCore.getBEnvironment().getDataDir(
-            instance.packageName,
-            instance.userId
-        )
+        // Wrap BlackBoxCore access in try-catch — may not be initialized yet
+        val dataDir = try {
+            BlackBoxCore.getBEnvironment().getDataDir(instance.packageName, instance.userId)
+        } catch (e: Throwable) {
+            // BlackBox not initialized, return empty
+            return emptyList()
+        }
 
         val saves = mutableListOf<SaveSnapshot>()
 
@@ -96,14 +97,11 @@ object AirSaveProvider : SaveDetector() {
 
 /**
  * Central manager for save detection, backup, and restoration.
- *
- * Coordinates with AirSaveProvider for save detection and SaveHasher for integrity.
  */
 class SaveManager {
 
     /**
      * Detects all save files for an instance.
-     * Only scans paths determined by the SaveProvider.
      */
     fun detectSaves(instanceId: Int, packageName: String): GachaResult<List<SaveSnapshot>> {
         val instance = InstanceStorage.getInstance(instanceId)
@@ -117,23 +115,13 @@ class SaveManager {
 
     /**
      * Creates a local backup of a save file.
-     *
-     * Flow:
-     * 1. Read original file
-     * 2. Calculate SHA-256
-     * 3. Store snapshot with file content
-     * 4. Write backup file to storage
-     *
-     * The original filename is always preserved.
      */
     fun backupSave(instanceId: Int, snapshot: SaveSnapshot): GachaResult<SaveSnapshot> {
-        // Validate instance exists
         val instance = InstanceStorage.getInstance(instanceId)
             ?: return GachaResult.failure(GachaError.InstanceNotFound(instanceId))
 
         return runBlocking {
             InstanceOperationLock.withInstanceLock(instanceId, "backup") {
-                // Resolve the virtual path
                 val virtualPath = snapshot.getVirtualPath()
                 val sourceFile = File(virtualPath)
 
@@ -144,7 +132,6 @@ class SaveManager {
                     ))
                 }
 
-                // Read and hash the file
                 val fileContent = sourceFile.readBytes()
                 val actualHash = SaveHasher.hashBytes(fileContent)
 
@@ -156,15 +143,12 @@ class SaveManager {
                     ))
                 }
 
-                // Create backup directory
                 val backupDir = File(snapshot.getBackupDir())
                 backupDir.mkdirs()
 
-                // Write backup file (preserving original filename)
                 val backupFile = File(backupDir, snapshot.fileName)
                 backupFile.writeBytes(fileContent)
 
-                // Verify written backup
                 val backupHash = SaveHasher.hashFile(backupFile)
                 if (backupHash != actualHash) {
                     backupFile.delete()
@@ -175,7 +159,6 @@ class SaveManager {
                     ))
                 }
 
-                // Return snapshot with file content
                 snapshot.copy(fileContent = fileContent)
             }
         }
@@ -183,21 +166,11 @@ class SaveManager {
 
     /**
      * Restores a save file from backup with atomic write and integrity verification.
-     *
-     * Flow:
-     * 1. Validate snapshot
-     * 2. Resolve target data directory
-     * 3. Create required directories
-     * 4. Write to temporary file
-     * 5. Verify SHA-256
-     * 6. Atomic replace (rename)
-     * 7. Final verification
      */
     fun restoreSave(instanceId: Int, snapshot: SaveSnapshot): GachaResult<SaveSnapshot> {
         val instance = InstanceStorage.getInstance(instanceId)
             ?: return GachaResult.failure(GachaError.InstanceNotFound(instanceId))
 
-        // Validate instance is not running
         if (instance.state == InstanceState.RUNNING) {
             return GachaResult.failure(GachaError.InvalidState(
                 currentState = instance.state,
@@ -208,7 +181,6 @@ class SaveManager {
 
         return runBlocking {
             InstanceOperationLock.withInstanceLock(instanceId, "restore") {
-                // 1. Find backup file
                 val backupFile = File(snapshot.getBackupPath())
                 if (!backupFile.exists()) {
                     throw GachaException(GachaError.SaveNotFound(
@@ -218,11 +190,9 @@ class SaveManager {
                     ))
                 }
 
-                // 2. Read backup content
                 val backupContent = backupFile.readBytes()
                 val backupHash = SaveHasher.hashBytes(backupContent)
 
-                // 3. Verify backup integrity
                 if (backupHash != snapshot.sha256) {
                     throw GachaException(GachaError.SnapshotCorrupted(
                         fileName = snapshot.fileName,
@@ -231,19 +201,15 @@ class SaveManager {
                     ))
                 }
 
-                // 4. Resolve target path
                 val targetPath = snapshot.getVirtualPath()
                 val targetFile = File(targetPath)
 
-                // 5. Ensure target directory exists
                 targetFile.parentFile?.mkdirs()
 
-                // 6. Atomic write: write to temp file first
                 val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
                 try {
                     tempFile.writeBytes(backupContent)
 
-                    // 7. Verify temp file hash
                     val tempHash = SaveHasher.hashFile(tempFile)
                     if (tempHash != backupHash) {
                         tempFile.delete()
@@ -254,18 +220,15 @@ class SaveManager {
                         ))
                     }
 
-                    // 8. Atomic replace: delete original, rename temp
                     if (targetFile.exists()) {
                         targetFile.delete()
                     }
                     val renamed = tempFile.renameTo(targetFile)
                     if (!renamed) {
-                        // Fallback: copy
                         tempFile.copyTo(targetFile, overwrite = true)
                         tempFile.delete()
                     }
 
-                    // 9. Final verification
                     val finalHash = SaveHasher.hashFile(targetFile)
                     if (finalHash != backupHash) {
                         throw GachaException(GachaError.RestoreVerificationFailed(
@@ -275,10 +238,8 @@ class SaveManager {
                         ))
                     }
 
-                    // Return restored snapshot
                     snapshot.copy(fileContent = backupContent)
                 } catch (e: GachaException) {
-                    // Clean up temp file on failure
                     if (tempFile.exists()) tempFile.delete()
                     throw e
                 } catch (e: Exception) {
