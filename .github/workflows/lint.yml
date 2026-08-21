@@ -30,6 +30,17 @@ jobs:
       run: |
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
+    - name: Generate Gradle wrapper
+      run: |
+        if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+          GRADLE_VERSION=$(grep distributionUrl gradle/wrapper/gradle-wrapper.properties | sed 's/.*gradle-\(.*\)-bin.zip.*/\1/')
+          echo "Downloading Gradle $GRADLE_VERSION to generate wrapper..."
+          curl -sL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp/
+          /tmp/gradle-${GRADLE_VERSION}/bin/gradle wrapper --gradle-version $GRADLE_VERSION
+          rm -rf /tmp/gradle-${GRADLE_VERSION} /tmp/gradle.zip
+        fi
+
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
