@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "/usr/local/bin/github-mcp-server",
+      "args": ["stdio"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}",
+        "GITHUB_TOOLSETS": "repos,actions,pull_requests"
+      }
+    }
+  }
+}
