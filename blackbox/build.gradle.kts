@@ -29,14 +29,6 @@ android {
 dependencies {
     implementation(project(":core"))
 
-    // NewBlackbox Bcore AAR
-    // Build the AAR via GitHub Actions: .github/workflows/build-newblackbox.yml
-    // Then trigger the workflow manually (Actions → Build NewBlackbox AAR → Run workflow)
-    // The AAR will be auto-committed to blackbox/libs/
-    fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))).forEach { aar ->
-        implementation(files(aar))
-    }
-
     implementation(libs.core.ktx)
     implementation(libs.coroutines.core)
 }

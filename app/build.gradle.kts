@@ -57,6 +57,9 @@ dependencies {
     implementation(project(":blackbox"))
     implementation(project(":native"))
 
+    // NewBlackbox Bcore AAR
+    implementation(files("../blackbox/libs/NewBlackbox-Bcore.aar"))
+
     implementation(libs.core.ktx)
     implementation(libs.appcompat)
     implementation(libs.material)
