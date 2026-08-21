@@ -23,8 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import me.asrielyankare.gachaultils.core.InstanceId
+import me.asrielyankare.gachaultils.core.InstanceState
 import me.asrielyankare.gachaultils.ui.theme.PrimaryOrange
+import me.asrielyankare.gachaultils.ui.theme.StateError
 import me.asrielyankare.gachaultils.ui.theme.StateRunning
+import me.asrielyankare.gachaultils.ui.theme.StateStarting
 import me.asrielyankare.gachaultils.ui.theme.StateStopped
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,18 +81,21 @@ fun InstanceCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                if (launcherState != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = launcherState,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = when (launcherState) {
-                            "Running" -> StateRunning
-                            "Stopped" -> StateStopped
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                }
+                Spacer(modifier = Modifier.height(4.dp))
+
+                val displayState = launcherState ?: instance.state.toDisplayString()
+                Text(
+                    text = displayState,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = when (instance.state) {
+                        InstanceState.RUNNING -> StateRunning
+                        InstanceState.READY -> StateStopped
+                        InstanceState.INSTALLING -> StateStarting
+                        InstanceState.ERROR -> StateError
+                        InstanceState.STOPPING -> StateStarting
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
             }
 
             Icon(
@@ -101,5 +107,16 @@ fun InstanceCard(
                     .padding(4.dp)
             )
         }
+    }
+}
+
+private fun InstanceState.toDisplayString(): String {
+    return when (this) {
+        InstanceState.CREATED -> "Created"
+        InstanceState.INSTALLING -> "Installing"
+        InstanceState.READY -> "Ready"
+        InstanceState.RUNNING -> "Running"
+        InstanceState.STOPPING -> "Stopping"
+        InstanceState.ERROR -> "Error"
     }
 }

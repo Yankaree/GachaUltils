@@ -1,16 +1,17 @@
 package me.asrielyankare.gachaultils.core
 
 /**
- * Stub for SyncManager - will be replaced by cloud sync implementation.
+ * Manager for cloud synchronization operations.
+ * Currently local-only; cloud providers will be added later.
  */
 object SyncManager {
-    fun syncToCloud(instanceId: Int, snapshot: SaveSnapshot, provider: CloudProvider): Boolean {
-        // TODO: Implement cloud sync
-        return false
+    fun syncToCloud(instanceId: Int, snapshot: SaveSnapshot, provider: CloudProvider): GachaResult<Boolean> {
+        // Cloud sync not yet implemented
+        return GachaResult.failure(GachaError.Unknown("Cloud sync not yet implemented"))
     }
 
-    fun syncFromCloud(instanceId: Int, snapshot: SaveSnapshot, provider: CloudProvider): SaveSnapshot? {
-        // TODO: Implement cloud sync
-        return null
+    fun syncFromCloud(instanceId: Int, snapshot: SaveSnapshot, provider: CloudProvider): GachaResult<SaveSnapshot> {
+        // Cloud sync not yet implemented
+        return GachaResult.failure(GachaError.Unknown("Cloud sync not yet implemented"))
     }
 }

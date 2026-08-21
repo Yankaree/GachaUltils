@@ -1,16 +1,20 @@
 package me.asrielyankare.gachaultils.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.asrielyankare.gachaultils.core.GameId
-import me.asrielyankare.gachaultils.core.GameType
+import me.asrielyankare.gachaultils.core.GachaResult
+import me.asrielyankare.gachaultils.core.InstanceState
 import me.asrielyankare.gachaultils.core.InstanceId
 import me.asrielyankare.gachaultils.core.InstanceManager
 import me.asrielyankare.gachaultils.core.InstanceStorage
+import me.asrielyankare.gachaultils.core.ApkImporter
+import me.asrielyankare.gachaultils.blackbox.StubBlackBoxIntegration
 
 data class HomeUiState(
     val instances: List<InstanceId> = emptyList(),
@@ -28,8 +32,21 @@ enum class LauncherState {
     Error
 }
 
-class HomeViewModel : ViewModel() {
+class HomeViewModel(application: Application) : AndroidViewModel(application) {
+    private val context = application
     private val instanceManager = InstanceManager()
+    private val apkImporter = ApkImporter(context)
+
+    // Initialize BlackBox integration
+    private val blackBoxIntegration = StubBlackBoxIntegration(context).also {
+        it.initialize()
+        it.registerImplementations()
+    }
+
+    // Initialize persistent storage
+    init {
+        InstanceStorage.init(context.filesDir)
+    }
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -41,19 +58,14 @@ class HomeViewModel : ViewModel() {
     fun loadInstances() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            try {
-                val instances = instanceManager.listInstances()
-                _uiState.value = _uiState.value.copy(
-                    instances = instances,
-                    selectedInstance = instances.firstOrNull(),
-                    isLoading = false
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load instances"
-                )
-            }
+            val instances = instanceManager.listInstances()
+            val selected = instances.firstOrNull { it.state == InstanceState.RUNNING }
+                ?: instances.firstOrNull()
+            _uiState.value = _uiState.value.copy(
+                instances = instances,
+                selectedInstance = selected,
+                isLoading = false
+            )
         }
     }
 
@@ -68,30 +80,31 @@ class HomeViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            try {
-                val nextId = _uiState.value.instances.size
-                instanceManager.createInstance(nextId, packageName, gameId, displayName)
-                loadInstances()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
+            when (val result = instanceManager.createInstance(packageName, gameId, displayName)) {
+                is GachaResult.Success -> loadInstances()
+                is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Failed to create instance"
+                    error = result.error.message
                 )
             }
         }
     }
 
-    fun launchInstance(apkPath: String) {
+    fun launchInstance() {
         val instance = _uiState.value.selectedInstance ?: return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(launcherState = LauncherState.Starting)
-            try {
-                val success = instanceManager.launchInstance(instance.id, apkPath)
-                _uiState.value = _uiState.value.copy(
-                    launcherState = if (success) LauncherState.Running else LauncherState.Error
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(launcherState = LauncherState.Error)
+            when (val result = instanceManager.launchInstance(instance.id)) {
+                is GachaResult.Success -> {
+                    _uiState.value = _uiState.value.copy(launcherState = LauncherState.Running)
+                    loadInstances()
+                }
+                is GachaResult.Failure -> {
+                    _uiState.value = _uiState.value.copy(
+                        launcherState = LauncherState.Error,
+                        error = result.error.message
+                    )
+                }
             }
         }
     }
@@ -99,13 +112,37 @@ class HomeViewModel : ViewModel() {
     fun stopInstance() {
         val instance = _uiState.value.selectedInstance ?: return
         viewModelScope.launch {
-            try {
-                instanceManager.stopInstance(instance.id)
-                _uiState.value = _uiState.value.copy(launcherState = LauncherState.Stopped)
-                loadInstances()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Failed to stop instance"
+            _uiState.value = _uiState.value.copy(launcherState = LauncherState.Stopped)
+            when (val result = instanceManager.stopInstance(instance.id)) {
+                is GachaResult.Success -> loadInstances()
+                is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
+                    error = result.error.message
+                )
+            }
+        }
+    }
+
+    fun importApk(apkPath: String, displayName: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            when (val result = apkImporter.importApk(apkPath, displayName, instanceManager)) {
+                is GachaResult.Success -> loadInstances()
+                is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = result.error.message
+                )
+            }
+        }
+    }
+
+    fun deleteInstance(instanceId: Int) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            when (val result = instanceManager.deleteInstance(instanceId)) {
+                is GachaResult.Success -> loadInstances()
+                is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = result.error.message
                 )
             }
         }

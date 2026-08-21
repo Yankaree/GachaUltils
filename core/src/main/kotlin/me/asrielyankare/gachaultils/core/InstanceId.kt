@@ -11,9 +11,6 @@ package me.asrielyankare.gachaultils.core
  * Instance 0 → BlackBox userId 0
  * Instance 1 → BlackBox userId 1
  * Instance 2 → BlackBox userId 2
- *
- * The InstanceId encapsulates the identity of a virtual instance, including its package
- * association, display name, and creation metadata.
  */
 data class InstanceId(
     /** Unique numeric ID for this instance */
@@ -26,6 +23,10 @@ data class InstanceId(
     val gameId: GameId,
     /** Human-readable display name for the instance */
     val displayName: String,
+    /** Current lifecycle state of this instance */
+    val state: InstanceState = InstanceState.CREATED,
+    /** Path to the APK file for this instance */
+    val apkPath: String = "",
     /** Timestamp when this instance was created */
     val createdAt: Long,
     /** Timestamp when this instance was last updated */
@@ -33,13 +34,6 @@ data class InstanceId(
 ) {
     /**
      * Creates a new InstanceId with default timestamps.
-     *
-     * @param id Unique numeric ID
-     * @param userId BlackBox userId mapping
-     * @param packageName Associated game package name
-     * @param gameId The GameId for the game
-     * @param displayName Human-readable display name
-     * @return A new InstanceId with current timestamps
      */
     companion object {
         fun create(
@@ -47,24 +41,18 @@ data class InstanceId(
             userId: Int,
             packageName: String,
             gameId: GameId,
-            displayName: String
+            displayName: String,
+            apkPath: String = ""
         ): InstanceId = InstanceId(
             id = id,
             userId = userId,
             packageName = packageName,
             gameId = gameId,
             displayName = displayName,
+            state = InstanceState.CREATED,
+            apkPath = apkPath,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
-        )
-
-        /** Creates an InstanceId from a NewBlackbox userId */
-        fun fromUserId(userId: Int, packageName: String, gameId: GameId, displayName: String): InstanceId = create(
-            id = userId,
-            userId = userId,
-            packageName = packageName,
-            gameId = gameId,
-            displayName = displayName
         )
     }
 }
