@@ -9,7 +9,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.GachaUltils">
         <activity
-            android:name=".MainActivity"
+            android:name="me.asrielyankare.gachaultils.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.GachaUltils">
             <intent-filter>
