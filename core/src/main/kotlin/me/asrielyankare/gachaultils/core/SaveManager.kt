@@ -39,7 +39,7 @@ abstract class SaveDetector {
  * Provider for Adobe AIR game save detection.
  *
  * Handles the specific save structure of AIR-based Gacha games:
- * dataDir/Local Store/#SharedObjects/game.swf/*.sol
+ * dataDir/Local Store/#SharedObjects/game.swf/ (sol files)
  *
  * Does NOT hard-code filenames. Discovers all .sol files dynamically.
  */
