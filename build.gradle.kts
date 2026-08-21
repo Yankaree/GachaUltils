@@ -1,13 +1,5 @@
 plugins {
-    kotlin("android") version "1.9.0" apply true
-    application
-}
-
-repositories {
-    mavenCentral()
-    google()
-}
-
-tasks.register("test") {
-    useTest {}
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.library) apply false
+    alias(libs.plugins.jetbrains.kotlin.android) apply false
 }

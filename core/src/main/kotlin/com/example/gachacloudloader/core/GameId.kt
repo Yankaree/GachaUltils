@@ -18,22 +18,22 @@ data class GameId(
 ) {
     /**
      * Determines if this GameId is equal to another.
-     * Compares based on packageName, gameType, and value fields.
+     * Compares based on packageName and gameType fields.
      *
      * @param other The other GameId to compare with
-     * @return true if both objects have identical packageName, gameType, and value
+     * @return true if both objects have identical packageName and gameType
      */
     override fun equals(other: Any): Boolean {
         if (this === other) return true
         if (other !is GameId) return false
-        return value == other.value && packageName == other.packageName && gameType == other.gameType
+        return packageName == other.packageName && gameType == other.gameType
     }
 
     /**
      * Generates a hash code for this GameId.
-     * Based on the combined values of packageName, gameType, and value fields.
+     * Based on the combined values of packageName and gameType fields.
      *
      * @return A hash code for this GameId
      */
-    override fun hashCode(): Int = (packageName + gameType.hashCode() + value.hashCode()).hashCode()
+    override fun hashCode(): Int = (packageName + gameType.hashCode()).hashCode()
 }

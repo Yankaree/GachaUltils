@@ -7,7 +7,7 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set("strict")
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
         google()
@@ -20,4 +20,3 @@ include(":app")
 include(":core")
 include(":blackbox")
 include(":native")
-include(":gradle")
