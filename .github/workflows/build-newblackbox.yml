@@ -1,11 +1,7 @@
 name: Build NewBlackbox AAR
 
 on:
-  workflow_dispatch:  # Manual trigger
-  push:
-    paths:
-      - 'NewBlackbox/**'
-      - '.github/workflows/build-newblackbox.yml'
+  workflow_dispatch:
 
 jobs:
   build-bcore:
@@ -37,30 +33,12 @@ jobs:
     - name: Build Bcore AAR
       working-directory: NewBlackbox
       run: |
-        chmod +x gradlew
+        chmod +x gradlew || true
         ./gradlew :Bcore:assembleRelease --no-daemon
-
-    - name: Copy AAR to project
-      run: |
-        mkdir -p blackbox/libs
-        cp NewBlackbox/Bcore/build/outputs/aar/Bcore-release.aar blackbox/libs/NewBlackbox-Bcore.aar 2>/dev/null || \
-        cp NewBlackbox/Bcore/build/outputs/aar/*.aar blackbox/libs/NewBlackbox-Bcore.aar 2>/dev/null || \
-        echo "AAR not found, checking build outputs..."
-        find NewBlackbox/Bcore/build/outputs -name "*.aar" 2>/dev/null
 
     - name: Upload AAR artifact
       uses: actions/upload-artifact@v4
       with:
         name: newblackbox-bcore-aar
-        path: blackbox/libs/*.aar
+        path: NewBlackbox/Bcore/build/outputs/aar/*.aar
         retention-days: 30
-
-    - name: Commit AAR to repo (optional)
-      run: |
-        if [ -f blackbox/libs/NewBlackbox-Bcore.aar ]; then
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add blackbox/libs/NewBlackbox-Bcore.aar
-          git diff --cached --quiet || git commit -m "build: add NewBlackbox Bcore AAR [skip ci]"
-          git push
-        fi
