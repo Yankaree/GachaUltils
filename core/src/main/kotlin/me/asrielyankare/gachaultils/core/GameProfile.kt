@@ -1,4 +1,4 @@
-package com.example.gachacloudloader.core
+package me.asrielyankare.gachaultils.core
 
 /**
  * Represents a complete profile for a Gacha game, containing all essential metadata

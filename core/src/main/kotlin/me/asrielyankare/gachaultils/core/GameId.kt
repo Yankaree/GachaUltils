@@ -1,4 +1,4 @@
-package com.example.gachacloudloader.core
+package me.asrielyankare.gachaultils.core
 
 /**
  * Represents a unique identifier for a Gacha game, encapsulating the package name and game type.

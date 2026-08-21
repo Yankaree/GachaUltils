@@ -1,4 +1,4 @@
-package com.example.gachacloudloader.core
+package me.asrielyankare.gachaultils.core
 
 import java.io.File
 

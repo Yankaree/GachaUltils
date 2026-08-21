@@ -1,4 +1,4 @@
-package com.example.gachacloudloader.core
+package me.asrielyankare.gachaultils.core
 
 /**
  * Stub for SyncManager - will be replaced by cloud sync implementation.

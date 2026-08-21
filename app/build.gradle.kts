@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.gachacloudloader.app"
+    namespace = "me.asrielyankare.gachaultils.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.yankaree.gachautils"
+        applicationId = "me.asrielyankare.gachaultils"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

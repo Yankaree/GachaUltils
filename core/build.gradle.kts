@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.gachacloudloader.core"
+    namespace = "me.asrielyankare.gachaultils.core"
     compileSdk = 34
 
     defaultConfig {

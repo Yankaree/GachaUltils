@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.gachacloudloader.blackbox"
+    namespace = "me.asrielyankare.gachaultils.blackbox"
     compileSdk = 34
 
     defaultConfig {

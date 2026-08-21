@@ -1,4 +1,4 @@
-package com.example.gachacloudloader.core
+package me.asrielyankare.gachaultils.core
 
 /**
  * Unique identifier for a BlackBox instance, mapping to a virtualized Android user environment.
