@@ -197,6 +197,77 @@ class InstanceManager {
     }
 
     /**
+     * Reinstalls an APK on an existing instance (overwrite version).
+     *
+     * Flow:
+     * 1. Stop instance if running
+     * 2. Uninstall old APK from BlackBox
+     * 3. Install new APK
+     * 4. Update state to READY
+     */
+    fun reinstallApk(instanceId: Int, apkPath: String): GachaResult<InstanceId> {
+        val instance = InstanceStorage.getInstance(instanceId)
+            ?: return GachaResult.failure(GachaError.InstanceNotFound(instanceId))
+
+        if (InstanceOperationLock.isLocked(instanceId)) {
+            return GachaResult.failure(GachaError.OperationInProgress(
+                instanceId = instanceId,
+                operation = "reinstall"
+            ))
+        }
+
+        // Stop if running
+        if (instance.state == InstanceState.RUNNING) {
+            val stopResult = stopInstance(instanceId)
+            if (stopResult is GachaResult.Failure) {
+                return GachaResult.failure(stopResult.error)
+            }
+        }
+
+        return runBlocking { InstanceOperationLock.withInstanceLock(instanceId, "reinstall") {
+            // Update state to INSTALLING
+            InstanceStorage.updateInstance(instance.copy(
+                state = InstanceState.INSTALLING,
+                updatedAt = System.currentTimeMillis()
+            ))
+
+            // Uninstall old APK
+            try {
+                BlackBoxCore.getBPackageManager().uninstallPackageAsUser(
+                    instance.packageName,
+                    instance.userId
+                )
+            } catch (e: Exception) {
+                // Continue even if uninstall fails
+            }
+
+            // Install new APK
+            val installResult = BlackBoxCore.getBPackageManager().installPackageAsUser(
+                apkPath,
+                instance.userId
+            )
+            when (installResult) {
+                is GachaResult.Success -> {
+                    val updated = instance.copy(
+                        state = InstanceState.READY,
+                        apkPath = apkPath,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    InstanceStorage.updateInstance(updated)
+                    updated
+                }
+                is GachaResult.Failure -> {
+                    InstanceStorage.updateInstance(instance.copy(
+                        state = InstanceState.ERROR,
+                        updatedAt = System.currentTimeMillis()
+                    ))
+                    throw GachaException(installResult.error)
+                }
+            }
+        } }
+    }
+
+    /**
      * Deletes an instance and cleans up resources.
      */
     fun deleteInstance(instanceId: Int): GachaResult<Unit> {

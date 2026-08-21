@@ -23,7 +23,17 @@ data class HomeUiState(
     val selectedInstance: InstanceId? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val launcherState: LauncherState = LauncherState.Idle
+    val launcherState: LauncherState = LauncherState.Idle,
+    // Reinstall dialog state
+    val pendingReinstall: PendingReinstall? = null
+)
+
+data class PendingReinstall(
+    val instanceId: Int,
+    val instanceName: String,
+    val packageName: String,
+    val apkPath: String,
+    val apkFileName: String
 )
 
 enum class LauncherState {
@@ -78,6 +88,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Handles APK file selected via SAF (Storage Access Framework).
      * Copies the APK to internal storage, then imports it.
+     * If an instance with the same package name exists, shows reinstall dialog.
      */
     fun handleApkSelected(uri: Uri) {
         viewModelScope.launch {
@@ -97,18 +108,84 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 // Get display name from content resolver
                 val displayName = getDisplayNameFromUri(uri) ?: "New Instance"
 
-                // Import the APK
-                when (val result = apkImporter.importApk(apkFile.absolutePath, displayName, instanceManager)) {
-                    is GachaResult.Success -> loadInstances()
+                // Validate APK to get package name
+                val profileResult = apkImporter.validateAndExtract(apkFile.absolutePath)
+                when (profileResult) {
+                    is GachaResult.Success -> {
+                        val packageName = profileResult.data.gameId.packageName
+                        // Check if instance with same package already exists
+                        val existing = InstanceStorage.findByPackageName(packageName)
+                        if (existing.isNotEmpty()) {
+                            // Show reinstall dialog
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                pendingReinstall = PendingReinstall(
+                                    instanceId = existing.first().id,
+                                    instanceName = existing.first().displayName,
+                                    packageName = packageName,
+                                    apkPath = apkFile.absolutePath,
+                                    apkFileName = displayName
+                                )
+                            )
+                        } else {
+                            // No existing instance — create new
+                            doImport(apkFile.absolutePath, displayName)
+                        }
+                    }
                     is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = result.error.message
+                        error = profileResult.error.message
                     )
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Failed to import APK: ${e.message}"
+                )
+            }
+        }
+    }
+
+    /**
+     * User confirmed reinstall on existing instance.
+     */
+    fun confirmReinstall() {
+        val pending = _uiState.value.pendingReinstall ?: return
+        _uiState.value = _uiState.value.copy(pendingReinstall = null, isLoading = true)
+        viewModelScope.launch {
+            when (val result = instanceManager.reinstallApk(pending.instanceId, pending.apkPath)) {
+                is GachaResult.Success -> loadInstances()
+                is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = result.error.message
+                )
+            }
+        }
+    }
+
+    /**
+     * User chose to create a new instance instead of reinstalling.
+     */
+    fun dismissReinstall() {
+        val pending = _uiState.value.pendingReinstall ?: return
+        _uiState.value = _uiState.value.copy(pendingReinstall = null, isLoading = true)
+        viewModelScope.launch {
+            doImport(pending.apkPath, pending.apkFileName)
+        }
+    }
+
+    fun cancelReinstall() {
+        _uiState.value = _uiState.value.copy(pendingReinstall = null)
+    }
+
+    private fun doImport(apkPath: String, displayName: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            when (val result = apkImporter.importApk(apkPath, displayName, instanceManager)) {
+                is GachaResult.Success -> loadInstances()
+                is GachaResult.Failure -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = result.error.message
                 )
             }
         }

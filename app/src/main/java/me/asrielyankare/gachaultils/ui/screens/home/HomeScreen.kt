@@ -37,6 +37,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -338,5 +340,29 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    // Reinstall dialog
+    uiState.pendingReinstall?.let { pending ->
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelReinstall() },
+            title = { Text("Update existing instance?") },
+            text = {
+                Text(
+                    "An instance named '${pending.instanceName}' with package '${pending.packageName}' already exists.\n\n"
+                    + "Do you want to update it with the new APK, or create a separate instance?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmReinstall() }) {
+                    Text("Update")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissReinstall() }) {
+                    Text("Create new")
+                }
+            }
+        )
     }
 }

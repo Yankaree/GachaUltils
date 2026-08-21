@@ -65,6 +65,10 @@ object InstanceStorage {
         return instanceMap.values.toList().sortedBy { it.id }
     }
 
+    fun findByPackageName(packageName: String): List<InstanceId> {
+        return instanceMap.values.filter { it.packageName == packageName }
+    }
+
     fun getNextId(): Int {
         return if (instanceMap.isEmpty()) 0 else (instanceMap.keys.max() ?: 0) + 1
     }
