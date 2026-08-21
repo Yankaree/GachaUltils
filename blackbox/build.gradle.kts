@@ -1,11 +1,11 @@
 plugins {
     id("com.android.library")
-    kotlin("android")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
     namespace = "me.asrielyankare.gachaultils.blackbox"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
@@ -51,6 +51,6 @@ dependencies {
     // When NewBlackbox is available, uncomment the following:
     // implementation(project(":NewBlackbox:Bcore"))
 
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation(libs.core.ktx)
+    implementation(libs.coroutines.core)
 }

@@ -1,5 +1,6 @@
 package me.asrielyankare.gachaultils.ui.screens.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,10 +8,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -89,7 +92,13 @@ fun SettingsScreen(
             SettingItem(
                 title = "Theme",
                 subtitle = uiState.theme.name,
-                onClick = { }
+                onClick = { viewModel.updateTheme(
+                    when (uiState.theme) {
+                        ThemeMode.Light -> ThemeMode.Dark
+                        ThemeMode.Dark -> ThemeMode.System
+                        ThemeMode.System -> ThemeMode.Light
+                    }
+                ) }
             )
 
             SettingToggle(
@@ -205,6 +214,7 @@ private fun SettingItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -219,6 +229,12 @@ private fun SettingItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

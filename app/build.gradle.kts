@@ -1,16 +1,17 @@
 plugins {
     id("com.android.application")
-    kotlin("android")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
     namespace = "me.asrielyankare.gachaultils.app"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "me.asrielyankare.gachaultils"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -40,10 +41,6 @@ android {
 
     buildFeatures {
         compose = true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
     }
 
     externalNativeBuild {

@@ -1,5 +1,6 @@
 package me.asrielyankare.gachaultils.ui.screens.home
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,8 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Backup
@@ -68,7 +68,7 @@ fun HomeScreen(
                             contentDescription = "Notifications"
                         )
                     }
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = onNavigateToSettings) {
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings"
@@ -82,12 +82,12 @@ fun HomeScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { },
+                onClick = { viewModel.importApk("", "New Instance") },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "Run",
+                    contentDescription = "Add Instance",
                     tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
@@ -140,7 +140,7 @@ fun HomeScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Add your first Gacha instance\nto start playing.",
+                        text = "Tap + to add your first Gacha instance.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -154,7 +154,7 @@ fun HomeScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    item {
+                    item(key = "greeting") {
                         Text(
                             text = "Good morning",
                             style = MaterialTheme.typography.headlineMedium,
@@ -168,7 +168,8 @@ fun HomeScreen(
                         )
                     }
 
-                    item {
+                    // Selected instance
+                    item(key = "selected") {
                         Text(
                             text = "Your instance",
                             style = MaterialTheme.typography.titleLarge,
@@ -180,7 +181,7 @@ fun HomeScreen(
                                 instance = instance,
                                 isSelected = true,
                                 launcherState = uiState.launcherState.name,
-                                onClick = { },
+                                onClick = { viewModel.selectInstance(instance) },
                                 onLaunch = {
                                     viewModel.launchInstance()
                                 }
@@ -188,7 +189,8 @@ fun HomeScreen(
                         }
                     }
 
-                    item {
+                    // Quick actions row
+                    item(key = "actions") {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -242,31 +244,37 @@ fun HomeScreen(
                         }
                     }
 
-                    item {
-                        Text(
-                            text = "Other instances",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                    // Other instances — using Row + horizontalScroll instead of LazyRow
+                    // to avoid nested scrollable conflicts that block touch events
+                    if (uiState.instances.size > 1) {
+                        item(key = "other_title") {
+                            Text(
+                                text = "Other instances",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
 
-                    item {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(uiState.instances.drop(1)) { instance ->
-                                InstanceCard(
-                                    instance = instance,
-                                    isSelected = false,
-                                    onClick = { viewModel.selectInstance(instance) },
-                                    onLaunch = { },
-                                    modifier = Modifier.width(200.dp)
-                                )
-                            }
-                            item {
+                        item(key = "other_list") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                uiState.instances.drop(1).forEach { instance ->
+                                    InstanceCard(
+                                        instance = instance,
+                                        isSelected = false,
+                                        onClick = { viewModel.selectInstance(instance) },
+                                        onLaunch = { viewModel.launchInstance() },
+                                        modifier = Modifier.width(200.dp)
+                                    )
+                                }
+                                // Add Instance placeholder card
                                 Card(
                                     modifier = Modifier.width(200.dp),
-                                    onClick = { },
+                                    onClick = { viewModel.importApk("", "New Instance") },
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant
                                     )
@@ -291,7 +299,8 @@ fun HomeScreen(
                         }
                     }
 
-                    item {
+                    // Announcement
+                    item(key = "announcement") {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(

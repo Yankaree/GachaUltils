@@ -1,5 +1,6 @@
 package me.asrielyankare.gachaultils.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -98,12 +99,14 @@ fun InstanceCard(
                 )
             }
 
+            // Launch button — separate clickable area so it doesn't conflict with Card onClick
             Icon(
                 imageVector = Icons.Default.PlayArrow,
                 contentDescription = "Launch",
                 tint = PrimaryOrange,
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(40.dp)
+                    .clickable(onClick = onLaunch)
                     .padding(4.dp)
             )
         }
